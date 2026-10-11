@@ -155,6 +155,16 @@ ensure_mysql_views()
 app = FastAPI(title="Assetly - Home inventory")
 
 
+@app.middleware("http")
+async def normalize_serverless_path(request: Request, call_next):
+    path = request.scope.get("path", "")
+    if path in ("/api/index", "/api/index/", "/app/main.py"):
+        request.scope["path"] = "/"
+    elif path.startswith("/api/index/"):
+        request.scope["path"] = path[len("/api/index"):]
+    return await call_next(request)
+
+
 @app.get("/static/uploads/{filename}")
 def serve_uploaded_photo(filename: str):
     safe_name = Path(filename).name

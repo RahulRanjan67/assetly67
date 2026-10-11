@@ -89,10 +89,13 @@ def test_aiven_url_and_vercel_entrypoint():
     from api.index import app as vercel_app
 
     assert vercel_app is app
+    assert client.get("/api/index").status_code == 200
+    assert client.get("/api/index/assets").status_code == 200
     aiven_uri = "mysql://avnadmin:AVNS_secret@mysql-demo.a.aivencloud.com:21450/defaultdb?ssl-mode=REQUIRED"
     normalized_url, connect_args = prepare_db_url_and_args(aiven_uri)
     assert normalized_url == "mysql+pymysql://avnadmin:AVNS_secret@mysql-demo.a.aivencloud.com:21450/defaultdb"
     assert "ssl-mode" not in normalized_url
     assert "ssl" in connect_args
+
 
 
