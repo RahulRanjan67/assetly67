@@ -2,34 +2,24 @@
 {% block content %}
 <div class="page-heading">
   <div>
-    <p class="eyebrow">PANTRY &amp; CONSUMABLES</p>
-    <h1>{{ "Snacks & Refreshments" if selected_category=="Snacks" else "Kitchen & Grocery Inventory" if selected_category=="Kitchen & Grocery" else "All Pantry & Groceries" }}</h1>
-    <p class="lede">Monitor remaining quantities, reorder thresholds, and expiration dates across household consumables.</p>
-  </div>
-  <div>
-    <span class="stamp">{{ items|length }} ITEM{{ 'S' if items|length != 1 else '' }}</span>
+    <h1>{{ "Snacks & Refreshments" if selected_category=="Snacks" else "Kitchen & Grocery Inventory" if selected_category=="Kitchen & Grocery" else "Pantry & Groceries" }} ({{ items|length }})</h1>
   </div>
 </div>
 
 {% if recommendations %}
-<div class="panel paper" style="margin-bottom: 24px; border-left: 4px solid var(--accent); background: var(--paper-warm);">
-  <div class="panel-head" style="margin-bottom: 12px;">
+<div class="panel" style="margin-bottom: 20px;">
+  <div class="panel-head">
     <div>
-      <p class="eyebrow" style="color: var(--accent);">RESTOCK RECOMMENDATIONS</p>
-      <h2>Frequently Consumed Items Due for Reorder</h2>
+      <p class="eyebrow">RESTOCK RECOMMENDATIONS</p>
+      <h2>Items Due for Reorder</h2>
     </div>
-    <span class="badge" style="background: rgba(184, 80, 56, 0.12); color: var(--accent); border: 1px solid var(--accent); font-weight: 700;">{{ recommendations|length }} SUGGESTIONS</span>
   </div>
-  <p class="lede" style="margin-bottom: 16px;">These household staples have high historical usage (&ge; 3 times) and haven't been purchased in over 60 days:</p>
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
+  <div class="recommend-grid">
     {% for r in recommendations %}
-    <div style="background: #ffffff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <span style="font-size: 26px;">🍪</span>
-      <div style="flex: 1;">
-        <b style="display: block; font-size: 15px; color: var(--ink);">{{ r.name }}</b>
-        <span style="display: block; font-size: 12px; color: var(--ink-soft); margin-top: 2px;">{{ r.brand or "Brand" }} · {{ r.location.name if r.location else "Pantry" }}</span>
-        <span style="display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent); background: rgba(184, 80, 56, 0.08); padding: 2px 8px; border-radius: 4px; margin-top: 6px;">Used {{ r.use_count }} times · Last bought {{ r.last_bought_at.strftime("%d %b %Y") if r.last_bought_at else "Unknown" }}</span>
-      </div>
+    <div class="recommend-item">
+      <b>{{ r.name }}</b>
+      <div>{{ r.brand or "Brand" }} &middot; {{ r.location.name if r.location else "Pantry" }}</div>
+      <small>Used {{ r.use_count }} times &middot; Last bought {{ r.last_bought_at.strftime("%d %b %Y") if r.last_bought_at else "Unknown" }}</small>
     </div>
     {% endfor %}
   </div>
@@ -37,35 +27,34 @@
 {% endif %}
 
 <form class="search" method="get">
-  <input name="q" value="{{ q }}" placeholder="Search pantry items, brands, or descriptions…">
-  <button type="submit">SEARCH</button>
+  <input name="q" value="{{ q }}" placeholder="Search pantry items or brands...">
+  <button type="submit">Search</button>
   {% if q %}
-  <a href="{{ request.url.path }}" class="clear-filter-btn">RESET</a>
+  <a href="{{ request.url.path }}" class="clear-filter-btn">Reset</a>
   {% endif %}
 </form>
 
 <div class="card-grid pantry-grid">
   {% for c, stock, expiry in items %}
   <div class="asset-card">
-    <div class="food-icon">{{ "🍪" if c.category and c.category.name=="Snacks" else "🍳" }}</div>
     <div class="card-top">
       <span class="catalog-id">{{ c.category.name if c.category else "Grocery" }}</span>
       {% if stock <= c.reorder_level %}
-      <span class="status lent">RESTOCK (LOW)</span>
+      <span class="status lent">LOW STOCK</span>
       {% else %}
       <span class="status">IN STOCK</span>
       {% endif %}
     </div>
     <h2>{{ c.name }}</h2>
-    <p>{{ c.brand or "Generic Brand" }} · {{ c.location.name if c.location else "Kitchen" }}</p>
+    <p>{{ c.brand or "Generic" }} &middot; {{ c.location.name if c.location else "Kitchen" }}</p>
     <div class="card-bottom">
       <strong>{{ stock }} {{ c.unit }}</strong>
-      <span>{% if expiry %}expires {{ expiry.strftime("%d %b %Y") }}{% else %}No expiry recorded{% endif %}</span>
+      <span>{% if expiry %}Exp: {{ expiry.strftime("%d %b %Y") }}{% else %}No expiry{% endif %}</span>
     </div>
   </div>
   {% else %}
   <div class="empty panel">
-    <p>No pantry or grocery items found.</p>
+    <p>No items found.</p>
   </div>
   {% endfor %}
 </div>

@@ -179,9 +179,7 @@ app.mount("/static", StaticFiles(directory=base / "static"), name="static")
 templates = Jinja2Templates(directory=base / "templates")
 categories = ["Furniture", "Snacks", "Books", "Miscellaneous", "Stationery", "Daily Use", "Kitchen & Grocery", "Documents", "Electronics", "Vehicles", "Clothing"]
 category_fields = {"Electronics": ["manufacturer", "model_number", "serial_number", "warranty_end"], "Vehicles": ["manufacturer", "model_number", "serial_number", "registration_number"], "Documents": ["document_number", "issuer", "expiry_date"], "Clothing": ["size", "color"], "Snacks": ["brand", "unit", "expiry_date"], "Kitchen & Grocery": ["brand", "unit", "expiry_date"]}
-category_icons = {"Furniture": "🪑", "Snacks": "🍪", "Books": "📚", "Miscellaneous": "🧩", "Stationery": "✏️", "Daily Use": "🧴", "Kitchen & Grocery": "🍳", "Documents": "📄", "Electronics": "💻", "Vehicles": "🚲", "Clothing": "🧥"}
 def seed(force: bool = False):
-    """Backfill a useful demo dataset without touching user-created records."""
     with Session(engine) as db:
         if not force and (db.scalar(select(func.count(Asset.id))) or 0) >= 30:
             return
@@ -211,9 +209,6 @@ def seed(force: bool = False):
         db.flush()
         examples = {"Furniture": ["Study chair", "Bedside table", "Floor lamp"], "Snacks": ["Snack basket", "Lunch snacks", "Tea tin"], "Books": ["Python cookbook", "The Alchemist", "Math notes"], "Miscellaneous": ["Umbrella", "Backpack", "Board game"], "Stationery": ["Blue pens", "Sketchbook", "Stapler"], "Daily Use": ["Water bottle", "Yoga mat", "Keys tray"], "Kitchen & Grocery": ["Mixer grinder", "Lunch box", "Coffee press"], "Documents": ["Passport folder", "House papers", "Certificates"], "Electronics": ["Dell Inspiron 14", "LG monitor", "Bluetooth speaker"], "Vehicles": ["City bicycle", "Helmet", "Scooter cover"], "Clothing": ["Winter jacket", "Rain coat", "Running shoes"]}
         places = ["Bedroom", "Study desk", "Cupboard", "Kitchen", "Garage", "Entry shelf"]
-        
-        # Explicit date & valuation distribution across the last 12 months
-        # (Recent 0-5 months dense, older items up to 365 days back; Electronics has high value to showcase category skew)
         item_meta = {
             "Dell Inspiron 14": (35, 54990.0, "Dell Official Store"),
             "LG monitor": (75, 14500.0, "Amazon India"),
@@ -329,7 +324,7 @@ def dashboard(request: Request):
         alerts = db.scalars(select(Borrowing).options(joinedload(Borrowing.asset), joinedload(Borrowing.person)).where(Borrowing.status == "ACTIVE").order_by(Borrowing.expected_return_date)).all()
         recommend = get_snack_recommendations(db)
         cats = db.scalars(select(Category).where(Category.assets.any()).order_by(Category.name)).all()
-        return page(request, "dashboard.html", title="Home", metrics=metrics(db), alerts=alerts[:5], categories=cats, category_icons=category_icons, recommendations=recommend)
+        return page(request, "dashboard.html", title="Home", metrics=metrics(db), alerts=alerts[:5], categories=cats, recommendations=recommend)
 @app.get("/assets", response_class=HTMLResponse)
 def assets(request: Request, q: str = "", status: str = "", category: str = "", location: str = ""):
     with Session(engine) as db:
@@ -810,18 +805,10 @@ def generate_qr_svg_bytes(data: str) -> bytes:
     img.save(stream)
     return stream.getvalue()
 
-@app.get("/qr/{asset_id}.svg")
-@app.get("/qr/{asset_id}/svg")
-def get_qr_svg(asset_id: int):
-    with Session(engine) as db:
-        asset = db.get(Asset, asset_id)
-        if not asset:
-            raise HTTPException(404, "asset not found")
-        data = asset.qr_code or f"ASSET-{asset.id}"
-        return Response(content=generate_qr_svg_bytes(data), media_type="image/svg+xml")
-
 @app.get("/qr/{asset_id}")
-def qr_fallback(asset_id: int):
+@app.get("/qr/{asset_id}/svg")
+@app.get("/qr/{asset_id}.svg")
+def get_qr_svg(asset_id: int):
     with Session(engine) as db:
         asset = db.get(Asset, asset_id)
         if not asset:

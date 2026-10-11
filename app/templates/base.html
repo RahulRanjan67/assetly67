@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or "Assetly" }} · Assetly Home Inventory</title>
+  <title>{{ title or "Assetly" }} - Assetly</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/">
       <span class="mark">A</span>
-      <span>Assetly<small>Home Inventory</small></span>
+      <span>Assetly</span>
     </a>
-    
+
     <nav class="main-nav">
       <a href="/" class="nav-item">Home</a>
       <a href="/assets" class="nav-item">My Things</a>
@@ -24,39 +24,20 @@
 
     <div class="topbar-right">
       <form class="topbar-search" action="/assets" method="get">
-        <input type="search" name="q" placeholder="Search items, locations, QR tags…" value="{{ q or '' }}" aria-label="Search inventory">
-        <button type="submit" title="Search">🔍</button>
+        <input type="search" name="q" placeholder="Search items, locations..." value="{{ q or '' }}" aria-label="Search inventory">
+        <button type="submit">Search</button>
       </form>
-      <div class="connection" id="connection-status">
-        <i class="status-dot"></i>
-        <span id="connection-label">ONLINE</span>
-      </div>
-    </div>
-  </header>
-
-  <div class="syncbar">
-    <div class="syncbar-left">
-      <span class="db-indicator"><i class="db-dot"></i> MySQL 8.0 Active</span>
-      <span class="sync-sep">·</span>
-      <span id="sync-status">Database Synchronized</span>
       <span id="offline-note" class="offline-note"></span>
     </div>
-    <div class="syncbar-right">
-      <span class="db-tag">InnoDB · Relational Engine · Local-first</span>
-    </div>
-  </div>
+  </header>
 
   <main>
     {% block content %}{% endblock %}
   </main>
 
   <footer>
-    <div class="footer-left">
-      <strong>Assetly</strong> · Personal &amp; Household Inventory Management
-    </div>
-    <div class="footer-right">
-      <span>Private &amp; Offline-Ready · MySQL 8.0 Relational Storage</span>
-    </div>
+    <div>Assetly Home Inventory</div>
+    <div id="sync-status"></div>
   </footer>
 
   <script src="/static/app.js"></script>

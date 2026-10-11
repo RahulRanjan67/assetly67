@@ -1,20 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<a class="back" href="/assets">← Back to all items</a>
+<a class="back" href="/assets">&larr; Back to items</a>
 
 <section class="detail-head">
   <div>
-    <p class="eyebrow">{{ asset.category.name|upper if asset.category else "GENERAL ASSET" }} · INVENTORY RECORD</p>
     <h1>{{ asset.name }}</h1>
-    <p class="lede">{{ asset.description or "Registered household item tracked in Assetly." }}</p>
+    <p class="lede">{{ asset.description or "Registered household item." }}</p>
   </div>
   <div class="head-status-group">
-    <span class="stamp status-{{ asset.status|lower }}">{{ "AT HOME" if asset.status=="AVAILABLE" else asset.status }}</span>
+    <span class="status {{ asset.status|lower }}">{{ "AT HOME" if asset.status=="AVAILABLE" else asset.status }}</span>
   </div>
 </section>
 
 <div class="detail-grid">
-  <!-- Media / Photo / QR Section -->
   <div class="panel detail-media-panel">
     <div class="media-display">
       {% if asset.photo_path %}
@@ -29,32 +27,32 @@
       {% endif %}
     </div>
 
-    <!-- Image Upload / Management Form -->
     <div class="media-controls">
       <form method="post" action="/assets/{{ asset.id }}/photo" enctype="multipart/form-data" class="upload-photo-form">
         <label class="button button-sm upload-file-label">
-          <span>📷 {{ "CHANGE PHOTO" if asset.photo_path else "UPLOAD PHOTO" }}</span>
+          <span>{{ "Change Photo" if asset.photo_path else "Upload Photo" }}</span>
           <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" onchange="this.form.submit()" style="display:none;">
         </label>
-        
         {% if asset.photo_path %}
         <button type="submit" formaction="/assets/{{ asset.id }}/photo/remove" class="text-button remove-photo-btn" onclick="return confirm('Remove current photo?')">Remove Photo</button>
         {% endif %}
       </form>
 
-      <!-- QR Code Actions -->
       <div class="qr-action-bar">
-        <a href="/qr/{{ asset.id }}/download" class="button button-sm button-secondary" title="Download SVG QR code vector">📥 DOWNLOAD QR SVG</a>
-        <button type="button" class="button button-sm button-secondary" onclick="window.print()" title="Print tag for physical item">🖨️ PRINT TAG</button>
+        <a href="/qr/{{ asset.id }}/download" class="button button-sm button-secondary">Download QR SVG</a>
+        <button type="button" class="button button-sm button-secondary" onclick="window.print()">Print Tag</button>
       </div>
     </div>
   </div>
 
-  <!-- Asset Attributes Panel -->
   <div class="panel">
     <div class="data-row">
       <span>LOCATION</span>
       <b>{{ asset.location.name if asset.location else "Not assigned" }}</b>
+    </div>
+    <div class="data-row">
+      <span>CATEGORY</span>
+      <b>{{ asset.category.name if asset.category else "General" }}</b>
     </div>
     <div class="data-row">
       <span>CONDITION</span>
@@ -66,136 +64,38 @@
     </div>
     <div class="data-row">
       <span>LAST UPDATED</span>
-      <b>{{ asset.updated_at.strftime("%d %b %Y, %H:%M") if asset.updated_at else "—" }}</b>
+      <b>{{ asset.updated_at.strftime("%d %b %Y, %H:%M") if asset.updated_at else "-" }}</b>
     </div>
     <div class="data-row">
       <span>QR IDENTIFIER</span>
-      <b class="qr-code-pill">{{ qr }}</b>
+      <b>{{ qr }}</b>
     </div>
     <div class="data-row">
       <span>OWNER</span>
-      <b>{{ asset.user.name if asset.user else "Household Owner" }}</b>
+      <b>{{ asset.user.name if asset.user else "Owner" }}</b>
     </div>
 
     <div class="action-row">
       <form method="post" action="/api/assets/{{ asset.id }}/lost" data-sync-form>
-        <button class="text-button">MARK AS LOST</button>
+        <button class="text-button">Mark as Lost</button>
       </form>
       <form method="post" action="/api/assets/{{ asset.id }}/destroyed" data-sync-form>
-        <button class="text-button">MARK DESTROYED</button>
+        <button class="text-button">Mark Destroyed</button>
       </form>
     </div>
   </div>
 </div>
 
-<!-- Database Record Inspector (Database Showcasing) -->
-<section class="panel db-inspector-panel">
-  <div class="panel-head">
-    <div>
-      <p class="eyebrow">RELATIONAL DATABASE SHOWCASE</p>
-      <h2>MySQL Live Tuple &amp; Schema Inspector</h2>
-    </div>
-    <span class="db-badge">TABLE: `assets`</span>
-  </div>
-  <p class="lede">Inspect the raw relational tuple and foreign key relations stored in MySQL 8.0 for this asset.</p>
-
-  <div class="sql-preview-box">
-    <span class="sql-label">Underlying SQL Query:</span>
-    <code>SELECT * FROM assets WHERE id = {{ asset.id }};</code>
-  </div>
-
-  <div class="table-responsive">
-    <table class="query-data-table db-tuple-table">
-      <thead>
-        <tr>
-          <th>Column Name</th>
-          <th>MySQL Data Type</th>
-          <th>Live Value in Database</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><code>id</code></td>
-          <td>INT (PRIMARY KEY)</td>
-          <td><strong>{{ asset.id }}</strong></td>
-        </tr>
-        <tr>
-          <td><code>name</code></td>
-          <td>VARCHAR(160)</td>
-          <td>{{ asset.name }}</td>
-        </tr>
-        <tr>
-          <td><code>status</code></td>
-          <td>VARCHAR(30)</td>
-          <td><span class="status-pill status-{{ asset.status|lower }}">{{ asset.status }}</span></td>
-        </tr>
-        <tr>
-          <td><code>condition</code></td>
-          <td>VARCHAR(40)</td>
-          <td>{{ asset.condition }}</td>
-        </tr>
-        <tr>
-          <td><code>photo_path</code></td>
-          <td>VARCHAR(500) NULL</td>
-          <td>
-            {% if asset.photo_path %}
-            <a href="{{ asset.photo_path }}" target="_blank" class="val-link"><code>{{ asset.photo_path }}</code></a>
-            {% else %}
-            <span class="val-null">NULL (Fallback to SVG QR Code Generator)</span>
-            {% endif %}
-          </td>
-        </tr>
-        <tr>
-          <td><code>qr_code</code></td>
-          <td>VARCHAR(160) NULL</td>
-          <td><code>{{ asset.qr_code }}</code></td>
-        </tr>
-        <tr>
-          <td><code>category_id</code></td>
-          <td>INT (FK &rarr; categories.id)</td>
-          <td>{{ asset.category_id }} ({{ asset.category.name if asset.category else 'NULL' }})</td>
-        </tr>
-        <tr>
-          <td><code>location_id</code></td>
-          <td>INT (FK &rarr; locations.id)</td>
-          <td>{{ asset.location_id }} ({{ asset.location.name if asset.location else 'NULL' }})</td>
-        </tr>
-        <tr>
-          <td><code>version_no</code></td>
-          <td>INT (OPTIMISTIC LOCK)</td>
-          <td>{{ asset.version_no }}</td>
-        </tr>
-        <tr>
-          <td><code>created_at</code></td>
-          <td>DATETIME</td>
-          <td>{{ asset.created_at }}</td>
-        </tr>
-        <tr>
-          <td><code>updated_at</code></td>
-          <td>DATETIME</td>
-          <td>{{ asset.updated_at }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<!-- Purchases, Warranties & Repairs Section -->
 <section class="split">
   <div class="panel">
-    <div class="panel-head">
-      <div>
-        <p class="eyebrow">FINANCIAL &amp; WARRANTY HISTORY</p>
-        <h2>Care &amp; Acquisition Details</h2>
-      </div>
-    </div>
+    <h2>Purchase &amp; Warranty History</h2>
     {% for p in asset.purchases %}
     <div class="data-row">
       <span>PURCHASED {{ p.purchase_date.strftime("%d %b %Y") }}</span>
-      <b>₹{{ "{:,.2f}".format(p.base_price) }}{% if p.seller %} · {{ p.seller }}{% endif %}</b>
+      <b>₹{{ "{:,.2f}".format(p.base_price) }}{% if p.seller %} - {{ p.seller }}{% endif %}</b>
     </div>
     {% else %}
-    <p class="empty">No purchase transactions recorded.</p>
+    <p class="empty">No purchase records.</p>
     {% endfor %}
 
     {% for w in asset.warranties %}
@@ -204,28 +104,61 @@
       <b>{{ w.provider }}{% if w.terms %} ({{ w.terms }}){% endif %}</b>
     </div>
     {% else %}
-    <p class="empty">No active warranty recorded.</p>
+    <p class="empty">No warranty recorded.</p>
     {% endfor %}
   </div>
 
   <div class="panel">
-    <p class="eyebrow">SERVICE LOG</p>
-    <h2>Equipment Repairs &amp; Maintenance</h2>
+    <h2>Repairs &amp; Maintenance</h2>
     {% for r in asset.repairs %}
     <div class="data-row">
       <span>{{ r.reported_date.strftime("%d %b %Y") }}</span>
-      <b>{{ r.issue }} · <span class="status-pill status-{{ r.status|lower }}">{{ r.status }}</span> (₹{{ "{:,.2f}".format(r.cost) }})</b>
+      <b>{{ r.issue }} - {{ r.status }} (₹{{ "{:,.2f}".format(r.cost) }})</b>
     </div>
     {% else %}
-    <p class="empty">No repairs or maintenance logs reported yet.</p>
+    <p class="empty">No repair records yet.</p>
     {% endfor %}
 
     <form class="quick-form" method="post" action="/api/assets/{{ asset.id }}/repairs" data-json-form>
-      <input name="issue" placeholder="Describe repair issue or routine service" required>
-      <input name="provider" placeholder="Service provider / technician name">
+      <input name="issue" placeholder="Repair issue or service" required>
+      <input name="provider" placeholder="Service provider">
       <input name="cost" type="number" min="0" step=".01" placeholder="Cost (₹)">
-      <button class="button">LOG REPAIR RECORD</button>
+      <button class="button">Log Repair</button>
     </form>
   </div>
 </section>
+
+<details class="tuple-collapse">
+  <summary class="tuple-collapse-head">
+    <span>MySQL Live Tuple &amp; Schema Inspector</span>
+    <span class="tuple-plus">+</span>
+  </summary>
+  <div class="tuple-collapse-body">
+    <p class="sql-inline"><code>SELECT * FROM assets WHERE id = {{ asset.id }};</code></p>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>INT PK</td><td>{{ asset.id }}</td></tr>
+          <tr><td><code>name</code></td><td>VARCHAR(160)</td><td>{{ asset.name }}</td></tr>
+          <tr><td><code>status</code></td><td>VARCHAR(30)</td><td>{{ asset.status }}</td></tr>
+          <tr><td><code>condition</code></td><td>VARCHAR(40)</td><td>{{ asset.condition }}</td></tr>
+          <tr><td><code>photo_path</code></td><td>VARCHAR(500)</td><td>{{ asset.photo_path or "NULL" }}</td></tr>
+          <tr><td><code>qr_code</code></td><td>VARCHAR(160)</td><td>{{ asset.qr_code }}</td></tr>
+          <tr><td><code>category_id</code></td><td>INT FK</td><td>{{ asset.category_id }} ({{ asset.category.name if asset.category else "NULL" }})</td></tr>
+          <tr><td><code>location_id</code></td><td>INT FK</td><td>{{ asset.location_id }} ({{ asset.location.name if asset.location else "NULL" }})</td></tr>
+          <tr><td><code>version_no</code></td><td>INT</td><td>{{ asset.version_no }}</td></tr>
+          <tr><td><code>created_at</code></td><td>DATETIME</td><td>{{ asset.created_at }}</td></tr>
+          <tr><td><code>updated_at</code></td><td>DATETIME</td><td>{{ asset.updated_at }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</details>
 {% endblock %}

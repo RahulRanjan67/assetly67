@@ -2,205 +2,105 @@
 {% block content %}
 <div class="page-heading">
   <div>
-    <p class="eyebrow">SQL DATABASE EXPLORER</p>
     <h1>MySQL Query Lab</h1>
-    <p class="lede">Inspect and execute real MySQL 8.0 queries against your live inventory database. Results are rendered in structured, responsive tables with export options.</p>
-  </div>
-  <div class="heading-badges">
-    <span class="stamp">MYSQL 8.0</span>
-    <span class="stamp stamp-green">{{ queries|length }} CATALOG QUERIES</span>
+    <p class="lede">Execute read-only SQL queries directly against the inventory database.</p>
   </div>
 </div>
 
-<!-- Interactive Custom SQL Runner Section -->
-<section class="panel custom-sql-panel">
-  <div class="panel-head">
-    <div>
-      <p class="eyebrow">INTERACTIVE DATABASE RUNNER</p>
-      <h2>Run Custom Read-Only SQL Query</h2>
+<section class="mysql-terminal-box">
+  <div class="mysql-terminal-bar">mysql&gt; interactive client (read-only mode: SELECT, SHOW, DESCRIBE, EXPLAIN)</div>
+  <form id="custom-sql-form" class="mysql-prompt-form">
+    <div class="mysql-prompt-row">
+      <span class="mysql-prompt-label">mysql&gt;</span>
+      <textarea id="custom-sql-input" rows="3" spellcheck="false" required>SELECT id, name, condition, status, qr_code, updated_at FROM assets ORDER BY id ASC LIMIT 8;</textarea>
     </div>
-    <span class="status">LIVE MYSQL ENGINE</span>
-  </div>
-  <p class="lede">Write any read-only query (<code>SELECT</code>, <code>SHOW</code>, <code>DESCRIBE</code>, <code>EXPLAIN</code>) to interrogate your inventory schema directly.</p>
-  
-  <div class="sql-presets">
-    <span class="presets-label">Quick Presets:</span>
-    <button type="button" class="preset-pill" data-sql="SELECT * FROM categories ORDER BY name;">Categories</button>
-    <button type="button" class="preset-pill" data-sql="SELECT * FROM vw_asset_overview LIMIT 10;">Overview View (Top 10)</button>
-    <button type="button" class="preset-pill" data-sql="SELECT status, COUNT(*) AS count FROM assets GROUP BY status;">Assets by Status</button>
-    <button type="button" class="preset-pill" data-sql="SELECT * FROM vw_asset_tco ORDER BY total_cost DESC LIMIT 5;">Top 5 Valued Assets</button>
-    <button type="button" class="preset-pill" data-sql="SHOW TABLES;">Show All Tables</button>
-  </div>
-
-  <form id="custom-sql-form" class="custom-sql-form">
-    <div class="editor-wrapper">
-      <textarea id="custom-sql-input" rows="3" placeholder="SELECT * FROM assets WHERE status = 'AVAILABLE' LIMIT 10;" spellcheck="false" required>SELECT id, name, condition, status, qr_code, updated_at FROM assets ORDER BY id ASC LIMIT 8;</textarea>
-    </div>
-    <div class="form-actions">
-      <button type="submit" class="button" id="custom-run-btn">RUN CUSTOM SQL ⚡</button>
-      <span class="shortcut-tip">Tip: Press Ctrl + Enter to execute</span>
+    <div class="mysql-prompt-actions">
+      <button type="submit" class="button" id="custom-run-btn">Execute SQL</button>
+      <button type="button" class="button button-secondary preset-pill" data-sql="SHOW TABLES;">SHOW TABLES;</button>
+      <button type="button" class="button button-secondary preset-pill" data-sql="DESCRIBE assets;">DESCRIBE assets;</button>
+      <button type="button" class="button button-secondary preset-pill" data-sql="SELECT * FROM vw_asset_overview LIMIT 10;">SELECT * FROM vw_asset_overview;</button>
+      <button type="button" class="button button-secondary preset-pill" data-sql="SELECT * FROM vw_asset_tco ORDER BY total_cost DESC;">SELECT * FROM vw_asset_tco;</button>
     </div>
   </form>
-
   <div id="custom-sql-result" class="query-result-container" style="display:none;"></div>
 </section>
 
-<!-- Saved Query Catalog Section -->
 <div class="section-title-wrap">
-  <div>
-    <p class="eyebrow">PREPARED DATABASE CATALOG</p>
-    <h2>Core Application Queries &amp; Views</h2>
-  </div>
-  <p class="lede">Pre-built MySQL queries utilized by Assetly across everyday screens, reports, and background inventory checks.</p>
+  <h2>Saved Queries &amp; Views</h2>
 </div>
 
 <div class="query-lab">
   {% for query in queries %}
   <article class="query-card" id="card-{{ query.id }}">
     <div class="query-card-header">
-      <div class="query-title">
-        <span class="dot"></span>
-        <b>{{ query.title or query.id|replace("_"," ")|title }}</b>
-      </div>
-      <div class="query-card-actions">
-        <button type="button" class="copy-sql-btn text-button" data-sql="{{ query.sql }}" title="Copy SQL statement">📋 Copy SQL</button>
-        <button type="button" class="button run-query" data-query="{{ query.id }}">RUN QUERY ⚡</button>
-      </div>
+      <b>{{ query.title or query.id }}</b>
+      <button type="button" class="button button-sm run-query" data-query="{{ query.id }}">Run Query</button>
     </div>
-    
     <p class="query-purpose">{{ query.purpose }}</p>
-    
-    <div class="sql-box-wrap">
-      <pre class="sql-code"><code>{{ query.sql }}</code></pre>
-    </div>
-
-    <div class="query-result-container" id="result-{{ query.id }}" style="display:none;">
-      <!-- Dynamic Table rendered by JavaScript -->
-    </div>
+    <pre class="sql-code">mysql&gt; {{ query.sql }};</pre>
+    <div class="query-result-container" id="result-{{ query.id }}" style="display:none;"></div>
   </article>
   {% endfor %}
 </div>
 
 <script>
-// Format column name from snake_case to Title Case
-function formatHeader(col) {
-  return col.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-// Convert dataset to CSV and trigger file download
-function downloadCsv(filename, rows) {
-  if (!rows || !rows.length) return;
-  const cols = Object.keys(rows[0]);
-  const csvRows = [];
-  csvRows.push(cols.map(c => `"${c.replace(/"/g, '""')}"`).join(","));
-  for (const row of rows) {
-    const values = cols.map(c => {
-      const val = row[c] === null || row[c] === undefined ? "" : String(row[c]);
-      return `"${val.replace(/"/g, '""')}"`;
-    });
-    csvRows.push(values.join(","));
-  }
-  const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Render formatted HTML table from query results
-function renderTable(container, data, queryId) {
+function renderMysqlOutput(container, data) {
   container.style.display = "block";
   if (!data || !data.rows) {
-    container.innerHTML = `<div class="query-error">No data returned from database engine.</div>`;
+    container.innerHTML = `<pre class="mysql-out">ERROR: No result set returned.</pre>`;
     return;
   }
   const rows = data.rows;
-  const count = rows.length;
-  const ms = data.elapsed_ms || 0;
+  const sec = ((data.elapsed_ms || 0) / 1000).toFixed(2);
+  const sqlText = (data.sql || "").trim();
+  const cmdLine = sqlText ? `mysql> ${sqlText.endsWith(";") ? sqlText : sqlText + ";"}\n` : "";
 
-  if (count === 0) {
-    container.innerHTML = `
-      <div class="query-meta-bar">
-        <span class="meta-pill">0 rows returned</span>
-        <span class="meta-pill time">${ms} ms</span>
-      </div>
-      <div class="query-empty">Query executed successfully, but returned 0 rows.</div>
-    `;
+  if (rows.length === 0) {
+    container.innerHTML = `<pre class="mysql-out">${escapeHtml(cmdLine)}Empty set (${sec} sec)</pre>`;
     return;
   }
 
-  const columns = data.columns && data.columns.length ? data.columns : Object.keys(rows[0]);
+  const cols = data.columns && data.columns.length ? data.columns : Object.keys(rows[0]);
+  const widths = cols.map(c => {
+    let maxW = String(c).length;
+    for (let i = 0; i < rows.length; i++) {
+      const v = rows[i][c] === null || rows[i][c] === undefined ? "NULL" : String(rows[i][c]);
+      if (v.length > maxW) maxW = v.length;
+    }
+    return maxW;
+  });
 
-  let tableHtml = `
-    <div class="query-meta-bar">
-      <div class="meta-left">
-        <span class="meta-pill"><strong>${count}</strong> record${count !== 1 ? 's' : ''} found</span>
-        <span class="meta-pill time">⏱ ${ms} ms</span>
-      </div>
-      <div class="meta-right">
-        <button type="button" class="export-csv-btn text-button" data-export="${queryId}">📥 Export CSV</button>
-      </div>
-    </div>
-    <div class="table-responsive">
-      <table class="query-data-table">
-        <thead>
-          <tr>
-            ${columns.map(c => `<th>${formatHeader(c)}</th>`).join("")}
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr>
-              ${columns.map(c => {
-                let v = r[c];
-                if (v === null || v === undefined) {
-                  return `<td><span class="val-null">—</span></td>`;
-                }
-                const strVal = String(v);
-                if (c.toLowerCase().includes("status")) {
-                  const s = strVal.toLowerCase();
-                  return `<td><span class="status-pill status-${s}">${strVal}</span></td>`;
-                }
-                if (c.toLowerCase() === "photo_path" && strVal) {
-                  return `<td><a href="${strVal}" target="_blank" class="val-link">📷 View Photo</a></td>`;
-                }
-                if (c.toLowerCase() === "qr_code" && strVal) {
-                  return `<td><span class="qr-code-pill">${strVal}</span></td>`;
-                }
-                if (typeof v === "number" && (c.includes("price") || c.includes("cost") || c.includes("amount") || c.includes("total"))) {
-                  return `<td><strong>₹${v.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>`;
-                }
-                return `<td>${strVal}</td>`;
-              }).join("")}
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
+  const border = "+" + widths.map(w => "-".repeat(w + 2)).join("+") + "+";
+  const header = "|" + cols.map((c, i) => " " + String(c).padEnd(widths[i], " ") + " ").join("|") + "|";
+  const body = rows.map(r => {
+    return "|" + cols.map((c, i) => {
+      const raw = r[c];
+      const str = raw === null || raw === undefined ? "NULL" : String(raw);
+      const isNum = typeof raw === "number";
+      return " " + (isNum ? str.padStart(widths[i], " ") : str.padEnd(widths[i], " ")) + " ";
+    }).join("|") + "|";
+  }).join("\n");
 
-  container.innerHTML = tableHtml;
-
-  // Bind Export CSV button
-  const expBtn = container.querySelector(".export-csv-btn");
-  if (expBtn) {
-    expBtn.onclick = () => downloadCsv(`assetly-query-${queryId || 'custom'}.csv`, rows);
-  }
+  const footer = `${rows.length} ${rows.length === 1 ? "row" : "rows"} in set (${sec} sec)`;
+  const output = `${cmdLine}${border}\n${header}\n${border}\n${body}\n${border}\n${footer}`;
+  container.innerHTML = `<pre class="mysql-out">${escapeHtml(output)}</pre>`;
 }
 
-// Preset button click handler
 document.querySelectorAll(".preset-pill").forEach(btn => {
-  btn.addEventListener("click", () => {
+  btn.onclick = () => {
     const input = document.getElementById("custom-sql-input");
     input.value = btn.dataset.sql;
     input.focus();
-  });
+  };
 });
 
-// Custom SQL submit handler
 const customForm = document.getElementById("custom-sql-form");
 const customResult = document.getElementById("custom-sql-result");
 const customBtn = document.getElementById("custom-run-btn");
@@ -211,7 +111,7 @@ customForm.addEventListener("submit", async (e) => {
   if (!sql) return;
 
   customResult.style.display = "block";
-  customResult.innerHTML = `<div class="query-loading">Executing query on MySQL...</div>`;
+  customResult.innerHTML = `<pre class="mysql-out">Running query...</pre>`;
   customBtn.disabled = true;
 
   try {
@@ -222,18 +122,17 @@ customForm.addEventListener("submit", async (e) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      customResult.innerHTML = `<div class="query-error">${data.detail || "Query execution failed."}</div>`;
+      customResult.innerHTML = `<pre class="mysql-out mysql-err">ERROR: ${escapeHtml(data.detail || "Query failed")}</pre>`;
     } else {
-      renderTable(customResult, data, "custom");
+      renderMysqlOutput(customResult, data);
     }
   } catch (err) {
-    customResult.innerHTML = `<div class="query-error">Network error: ${err.message}</div>`;
+    customResult.innerHTML = `<pre class="mysql-out mysql-err">ERROR: ${escapeHtml(err.message)}</pre>`;
   } finally {
     customBtn.disabled = false;
   }
 });
 
-// Shortcut Ctrl+Enter on textarea
 document.getElementById("custom-sql-input").addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     e.preventDefault();
@@ -241,41 +140,26 @@ document.getElementById("custom-sql-input").addEventListener("keydown", (e) => {
   }
 });
 
-// Run catalog query click handler
 document.querySelectorAll(".run-query").forEach(btn => {
   btn.addEventListener("click", async () => {
     const queryId = btn.dataset.query;
     const container = document.getElementById("result-" + queryId);
     container.style.display = "block";
-    container.innerHTML = `<div class="query-loading">Running query against MySQL...</div>`;
+    container.innerHTML = `<pre class="mysql-out">Running query...</pre>`;
     btn.disabled = true;
 
     try {
       const res = await fetch("/api/query-lab?query=" + encodeURIComponent(queryId));
       const data = await res.json();
       if (!res.ok) {
-        container.innerHTML = `<div class="query-error">${data.detail || "Query error"}</div>`;
+        container.innerHTML = `<pre class="mysql-out mysql-err">ERROR: ${escapeHtml(data.detail || "Query error")}</pre>`;
       } else {
-        renderTable(container, data, queryId);
+        renderMysqlOutput(container, data);
       }
     } catch (err) {
-      container.innerHTML = `<div class="query-error">Failed to connect to database: ${err.message}</div>`;
+      container.innerHTML = `<pre class="mysql-out mysql-err">ERROR: ${escapeHtml(err.message)}</pre>`;
     } finally {
       btn.disabled = false;
-    }
-  });
-});
-
-// Copy SQL button handler
-document.querySelectorAll(".copy-sql-btn").forEach(btn => {
-  btn.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(btn.dataset.sql);
-      const originalText = btn.textContent;
-      btn.textContent = "✓ Copied!";
-      setTimeout(() => { btn.textContent = originalText; }, 1800);
-    } catch (_) {
-      alert("SQL: " + btn.dataset.sql);
     }
   });
 });

@@ -1,12 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<a class="back" href="/assets">← Back to inventory catalog</a>
+<a class="back" href="/assets">&larr; Back to items</a>
 
 <div class="page-heading">
   <div>
-    <p class="eyebrow">ITEM REGISTRATION</p>
-    <h1>Add New Inventory Item</h1>
-    <p class="lede">Select a category to customize specifications, record purchase valuation, and upload item photos.</p>
+    <h1>Add Item</h1>
   </div>
 </div>
 
@@ -14,7 +12,7 @@
   <form class="quick-form" method="post" action="/assets" enctype="multipart/form-data" data-offline-form>
     <label>
       Item Name *
-      <input name="name" required maxlength="160" placeholder="e.g. Ergonomic Office Chair, Sony Headphones">
+      <input name="name" required maxlength="160" placeholder="Item name">
     </label>
 
     <div class="form-row-2">
@@ -28,7 +26,7 @@
       </label>
 
       <label>
-        Home Location / Room
+        Location / Room
         <input name="location" value="Entry shelf" placeholder="e.g. Bedroom, Study desk, Kitchen">
       </label>
     </div>
@@ -66,17 +64,17 @@
       </label>
 
       <label>
-        Item Photo (Optional)
+        Photo (Optional)
         <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
       </label>
     </div>
 
     <label>
-      Description &amp; Notes
-      <textarea name="description" rows="3" placeholder="Additional details, serial numbers, or location notes…"></textarea>
+      Description
+      <textarea name="description" rows="3" placeholder="Notes or serial number"></textarea>
     </label>
 
-    <button type="submit" class="button">SAVE INVENTORY ITEM</button>
+    <button type="submit" class="button">Save Item</button>
   </form>
 </section>
 

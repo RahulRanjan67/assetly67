@@ -2,48 +2,43 @@
 {% block content %}
 <section class="hero">
   <div>
-    <p class="eyebrow">HOUSEHOLD INVENTORY SYSTEM</p>
-    <h1>All Belongings &amp; Equipment,<br><em>Organized &amp; Accounted For.</em></h1>
-    <p class="lede">A complete local-first inventory for tracking your home assets, warranties, pantry stock, and borrowed items.</p>
+    <h1>Household Inventory</h1>
+    <p class="lede">Track home items, warranties, groceries, and borrowed belongings.</p>
   </div>
-  <a class="button" href="/assets">BROWSE ALL ASSETS →</a>
+  <a class="button" href="/assets">Browse All Items &rarr;</a>
 </section>
 
 <section class="metric-grid">
   <a class="metric" href="/assets">
-    <span>REGISTERED ASSETS</span>
+    <span>TOTAL ITEMS</span>
     <strong>{{ metrics.asset_count }}</strong>
-    <small>tracked in home catalog</small>
+    <small>in catalog</small>
   </a>
   <a class="metric" href="/lending">
     <span>CURRENTLY LENT</span>
     <strong>{{ metrics.loans }}</strong>
-    <small>{{ metrics.overdue }} overdue for return</small>
+    <small>{{ metrics.overdue }} overdue</small>
   </a>
   <a class="metric" href="/consumables">
-    <span>RESTOCK NEEDED</span>
+    <span>LOW STOCK</span>
     <strong>{{ metrics.low_stock }}</strong>
-    <small>items below reorder level</small>
+    <small>below reorder threshold</small>
   </a>
   <a class="metric" href="/reports">
-    <span>PORTFOLIO VALUE</span>
+    <span>TOTAL VALUE</span>
     <strong>₹{{ "{:,.0f}".format(metrics.total_value) }}</strong>
-    <small>cumulative purchase cost</small>
+    <small>purchase cost</small>
   </a>
 </section>
 
 <section class="category-panel panel">
   <div class="panel-head">
-    <div>
-      <p class="eyebrow">INVENTORY CATEGORIES</p>
-      <h2>Explore Assets by Category</h2>
-    </div>
-    <a class="back" href="/assets">View full catalog →</a>
+    <h2>Categories</h2>
+    <a class="back" href="/assets">View all &rarr;</a>
   </div>
   <div class="category-grid">
     {% for c in categories %}
     <a class="category" href="/assets?category={{ c.name|urlencode }}">
-      <span class="category-icon" aria-hidden="true">{{ category_icons.get(c.name, "📦") }}</span>
       <b>{{ c.name }}</b>
       <small>{{ c.assets|length }} items</small>
     </a>
@@ -54,43 +49,37 @@
 <section class="split">
   <div class="panel">
     <div class="panel-head">
-      <div>
-        <p class="eyebrow">LOAN TRACKER</p>
-        <h2>Active &amp; Overdue Borrowings</h2>
-      </div>
-      <a class="back" href="/lending">Manage lending →</a>
+      <h2>Active Loans</h2>
+      <a class="back" href="/lending">Manage &rarr;</a>
     </div>
     {% for loan in alerts %}
     <div class="slip">
-      <span class="slip-icon">↗</span>
       <div>
         <b>{{ loan.asset.name }}</b>
-        <p>Lent to {{ loan.person.name }} · Expected back {{ loan.expected_return_date.strftime("%d %b %Y") }}</p>
+        <p>Lent to {{ loan.person.name }} &middot; Due {{ loan.expected_return_date.strftime("%d %b %Y") }}</p>
       </div>
       <span class="status {{ 'lent' if loan.expected_return_date < metrics.today else 'active' }}">
-        {{ "OVERDUE" if loan.expected_return_date < metrics.today else "OUT ON LOAN" }}
+        {{ "OVERDUE" if loan.expected_return_date < metrics.today else "LENT" }}
       </span>
     </div>
     {% else %}
-    <div class="empty">No items are currently lent out. Everything is safely at home.</div>
+    <div class="empty">No active loans.</div>
     {% endfor %}
   </div>
 
-  <div class="panel paper">
-    <p class="eyebrow">PANTRY REORDER</p>
-    <h2>Pantry &amp; Kitchen Alerts</h2>
+  <div class="panel">
+    <h2>Pantry Alerts</h2>
     {% for item in recommendations %}
     <div class="recommend">
-      <span>🍪</span>
       <div>
         <b>{{ item.name }}</b>
-        <p>Needs restock (purchased over 60 days ago)</p>
+        <p>Due for restock (bought over 60 days ago)</p>
       </div>
     </div>
     {% else %}
-    <p class="lede">Pantry stock is well replenished. Favorite snacks and kitchen items due for reordering will appear here.</p>
+    <p class="lede">No restock alerts right now.</p>
     {% endfor %}
-    <a class="button" href="/consumables">VIEW PANTRY &amp; GROCERIES →</a>
+    <a class="button" href="/consumables" style="margin-top: 12px;">Open Groceries &rarr;</a>
   </div>
 </section>
 {% endblock %}
