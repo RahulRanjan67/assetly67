@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="back" href="/assets">← Back to inventory catalog</a>
+
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">ITEM REGISTRATION</p>
+    <h1>Add New Inventory Item</h1>
+    <p class="lede">Select a category to customize specifications, record purchase valuation, and upload item photos.</p>
+  </div>
+</div>
+
+<section class="panel">
+  <form class="quick-form" method="post" action="/assets" enctype="multipart/form-data" data-offline-form>
+    <label>
+      Item Name *
+      <input name="name" required maxlength="160" placeholder="e.g. Ergonomic Office Chair, Sony Headphones">
+    </label>
+
+    <div class="form-row-2">
+      <label>
+        Category
+        <select name="category" id="new-category">
+          {% for c in categories %}
+          <option value="{{ c }}" {% if c==selected_category %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>
+        Home Location / Room
+        <input name="location" value="Entry shelf" placeholder="e.g. Bedroom, Study desk, Kitchen">
+      </label>
+    </div>
+
+    <div class="form-row-2">
+      <label>
+        Purchase Price (₹)
+        <input name="price" type="number" min="0" step=".01" value="0">
+      </label>
+
+      <label>
+        Purchase Date
+        <input name="purchase_date" type="date">
+      </label>
+    </div>
+
+    <div id="category-fields">
+      {% for field in fields %}
+      <label>
+        {{ field|replace("_"," ")|title }}
+        <input name="{{ field }}" type="{{ 'date' if 'date' in field or 'expiry' in field or 'warranty' in field else 'text' }}">
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="form-row-2">
+      <label>
+        Condition
+        <select name="condition">
+          <option value="New">New</option>
+          <option value="Good" selected>Good</option>
+          <option value="Fair">Fair</option>
+          <option value="Needs repair">Needs repair</option>
+        </select>
+      </label>
+
+      <label>
+        Item Photo (Optional)
+        <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+      </label>
+    </div>
+
+    <label>
+      Description &amp; Notes
+      <textarea name="description" rows="3" placeholder="Additional details, serial numbers, or location notes…"></textarea>
+    </label>
+
+    <button type="submit" class="button">SAVE INVENTORY ITEM</button>
+  </form>
+</section>
+
+<script>
+document.getElementById("new-category").addEventListener("change", async e => {
+  const r = await fetch("/api/categories/" + encodeURIComponent(e.target.value) + "/new-item");
+  const d = await r.json();
+  document.getElementById("category-fields").innerHTML = d.fields
+    .filter(f => !["name", "location", "price"].includes(f.name))
+    .map(f => `<label>${f.name.replaceAll("_", " ")}<input name="${f.name}" type="${f.type}"></label>`)
+    .join("");
+});
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">LOAN TRACKER</p>
+    <h1>Borrowing &amp; Lending</h1>
+    <p class="lede">Track belongings and equipment lent to friends, colleagues, or neighbors with return dates and terms.</p>
+  </div>
+  <div>
+    <span class="stamp">{{ loans|length }} LOAN RECORD{{ 'S' if loans|length != 1 else '' }}</span>
+  </div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">RECORD NEW LOAN</p>
+      <h2>Lend an Inventory Item</h2>
+    </div>
+  </div>
+  <form class="quick-form lending-form" method="post" action="/lending">
+    <select name="asset_id" required>
+      <option value="">Select an available asset…</option>
+      {% for a in assets %}
+      <option value="{{ a.id }}">{{ a.name }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="person_id" required>
+      <option value="">Select borrower contact…</option>
+      {% for p in people %}
+      <option value="{{ p.id }}">{{ p.name }} ({{ p.contact or 'No contact' }})</option>
+      {% endfor %}
+    </select>
+
+    <input name="expected_return_date" type="date" required title="Expected return date">
+
+    <select name="payment_type">
+      <option value="FREE">Free Loan (No Fee)</option>
+      <option value="PAID">Paid / Rental Fee</option>
+    </select>
+
+    <input name="amount" type="number" min="0" step=".01" placeholder="Fee amount (₹0.00)">
+
+    <select name="payment_status">
+      <option value="NOT_REQUIRED">Payment Not Required</option>
+      <option value="PENDING">Payment Pending</option>
+      <option value="PAID">Paid in Full</option>
+    </select>
+
+    <input name="notes" placeholder="Optional notes or return conditions">
+    
+    <button class="button">REGISTER BORROWING RECORD</button>
+  </form>
+</section>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ITEM NAME</th>
+        <th>BORROWER</th>
+        <th>EXPECTED RETURN</th>
+        <th>TERMS / PAYMENT</th>
+        <th>NOTES</th>
+        <th>STATUS</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in loans %}
+      <tr>
+        <td><b>{{ l.asset.name }}</b></td>
+        <td>{{ l.person.name }}</td>
+        <td>{{ l.expected_return_date.strftime("%d %b %Y") }}</td>
+        <td>
+          {{ "Free" if l.payment_type=="FREE" else "₹" ~ "{:,.2f}".format(l.amount) }}
+          <small>{{ l.payment_status|replace("_"," ")|title }}</small>
+        </td>
+        <td>{{ l.notes or "—" }}</td>
+        <td>
+          <span class="status {{ 'lent' if l.status=='ACTIVE' and l.expected_return_date < today else l.status|lower }}">
+            {{ l.status|title }}
+          </span>
+        </td>
+        <td>
+          {% if l.status=="ACTIVE" %}
+          <form method="post" action="/lending/{{ l.id }}/return">
+            <button class="text-button return-btn">MARK RETURNED</button>
+          </form>
+          {% else %}
+          <small class="text-muted">Returned</small>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="empty">No active or historical borrowings found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

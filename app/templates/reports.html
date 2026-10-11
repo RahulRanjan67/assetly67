@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">ANALYTICS &amp; VALUATION</p>
+    <h1>Inventory Insights &amp; Statistics</h1>
+    <p class="lede">Explore historical acquisition expenditures, category capital allocation, and sensitivity analysis.</p>
+  </div>
+  <div>
+    <span class="stamp" id="summary-asset-count">{{ metrics.asset_count }} ASSETS ANALYZED</span>
+  </div>
+</div>
+
+<!-- Controls: Mode Selection & Sensitivity Category Exclusion -->
+<div class="panel paper" style="margin-bottom: 24px; padding: 20px 24px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 18px;">
+    <div>
+      <p class="eyebrow" style="margin-bottom: 6px;">STATISTICAL VIEW MODE</p>
+      <div class="mode-toggle-group">
+        <button type="button" class="mode-btn active" data-mode="monthwise">📅 Month-wise Statistics</button>
+        <button type="button" class="mode-btn" data-mode="total">📊 Total Portfolio Statistics</button>
+      </div>
+    </div>
+
+    <div id="period-wrap">
+      <p class="eyebrow" style="margin-bottom: 6px;">TIMELINE HORIZON</p>
+      <div class="period-toggle">
+        <button type="button" class="text-button period active" data-period="all">ALL TIME (12 MONTHS)</button>
+        <button type="button" class="text-button period" data-period="month">PAST 30 DAYS</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid var(--line); padding-top: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 2px;">SENSITIVITY &amp; SKEW FILTER</p>
+        <span style="font-size: 13px; color: var(--ink-soft);">
+          Click categories to exclude them from calculations (useful when high-cost items like <strong>Electronics</strong> skew baseline statistics):
+        </span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" id="btn-toggle-electronics" class="text-button" style="font-weight: 700; color: #b85038; border-color: rgba(184,80,56,0.3);">
+          ⚡ Exclude High-Cost (Electronics)
+        </button>
+        <button type="button" id="btn-reset-categories" class="text-button" style="font-weight: 600;">
+          ↺ Include All
+        </button>
+      </div>
+    </div>
+
+    <!-- Category Exclusion Chips -->
+    <div class="category-chips-wrap" id="category-chips">
+      {% for cat in all_categories %}
+      <button type="button" class="cat-chip" data-category="{{ cat }}" title="Click to exclude {{ cat }}">
+        <span class="chip-indicator">✓</span>
+        <span class="chip-label">{{ cat }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Dynamic Summary Stat Cards -->
+<div class="summary-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+  <div class="stat-box panel" style="padding: 18px;">
+    <small style="color: var(--ink-soft); font-weight: 600; text-transform: uppercase; font-size: 11px;">Analyzed Portfolio Valuation</small>
+    <strong id="stat-total-val" style="font-size: 26px; display: block; color: var(--green); margin-top: 4px;">
+      ₹{{ "{:,.0f}".format(metrics.total_value) }}
+    </strong>
+    <span id="stat-skew-note" style="font-size: 11.5px; color: var(--ink-soft); display: block; margin-top: 4px;">Full household inventory</span>
+  </div>
+
+  <div class="stat-box panel" style="padding: 18px;">
+    <small style="color: var(--ink-soft); font-weight: 600; text-transform: uppercase; font-size: 11px;">Tracked Items Included</small>
+    <strong id="stat-item-count" style="font-size: 26px; display: block; color: var(--ink); margin-top: 4px;">
+      {{ metrics.asset_count }}
+    </strong>
+    <span style="font-size: 11.5px; color: var(--ink-soft); display: block; margin-top: 4px;">Assets across included categories</span>
+  </div>
+
+  <div class="stat-box panel" style="padding: 18px;">
+    <small style="color: var(--ink-soft); font-weight: 600; text-transform: uppercase; font-size: 11px;">Active Categories</small>
+    <strong id="stat-cat-count" style="font-size: 26px; display: block; color: var(--ink); margin-top: 4px;">
+      {{ all_categories|length }} / {{ all_categories|length }}
+    </strong>
+    <span id="stat-cat-status" style="font-size: 11.5px; color: var(--green); display: block; margin-top: 4px;">No categories excluded</span>
+  </div>
+
+  <div class="stat-box panel" style="padding: 18px;">
+    <small style="color: var(--ink-soft); font-weight: 600; text-transform: uppercase; font-size: 11px;">Active Borrowings</small>
+    <strong style="font-size: 26px; display: block; color: var(--accent); margin-top: 4px;">
+      {{ metrics.loans }}
+    </strong>
+    <span style="font-size: 11.5px; color: var(--ink-soft); display: block; margin-top: 4px;">{{ metrics.overdue }} overdue items</span>
+  </div>
+</div>
+
+<!-- Primary Visualization & Analytical Data Table -->
+<div class="panel chart-panel" style="margin-bottom: 24px;">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow" id="view-title-eyebrow">MONTH-BY-MONTH ANALYSIS</p>
+      <h2 id="view-title-h2">Historical Acquisition Trend</h2>
+    </div>
+    <span class="badge" id="chart-data-badge" style="font-weight: 700;">Live SQL Aggregation</span>
+  </div>
+
+  <div id="chart-container" class="svg-chart-container" style="min-height: 240px;">
+    <svg id="insight-chart" viewBox="0 0 800 260" role="img" aria-label="Expenditure analytics graph"></svg>
+  </div>
+  <p id="chart-status" class="chart-status-bar" style="margin: 8px 0 16px;">Loading live analytics…</p>
+
+  <!-- Responsive Detailed Breakdown Table -->
+  <div class="table-responsive" style="margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;">
+    <table class="table" id="analytics-table">
+      <thead id="table-head">
+        <!-- Dynamically populated based on mode -->
+      </thead>
+      <tbody id="table-body">
+        <!-- Dynamically populated rows -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Expandable MySQL Analytical Query Inspector at the Very Bottom -->
+<details class="sql-inspector-card" id="sql-query-accordion">
+  <summary class="sql-inspector-summary">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 18px;">🔍</span>
+      <div>
+        <strong style="display: block; font-size: 14.5px; color: #eaf5ee;">Live MySQL 8.0 Analytical Query</strong>
+        <span style="font-size: 12px; color: #a4ceb8;">Click to expand the exact parameterized SQL executed for these statistics</span>
+      </div>
+    </div>
+    <span class="sql-expand-badge">VIEW SQL</span>
+  </summary>
+  <div class="sql-inspector-body">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+      <div style="font-size: 12px; color: #b9dfcb;">
+        Executed against MySQL 8.0 with InnoDB indexed joins &amp; window aggregates:
+      </div>
+      <button type="button" class="button copy-sql-btn" id="btn-copy-live-sql" style="padding: 4px 10px; font-size: 11px;">
+        📋 Copy SQL Query
+      </button>
+    </div>
+    <div class="sql-box-wrap" style="background: #0f1814; border: 1px solid #23372e; border-radius: 8px; padding: 14px;">
+      <pre style="margin:0;"><code id="live-sql-code" class="sql-code" style="color: #68cf90; font-family: var(--font-mono); font-size: 13px; line-height: 1.6;"></code></pre>
+    </div>
+    <p style="font-size: 12px; color: #82a893; margin-top: 10px; line-height: 1.5;">
+      💡 <strong>Optimization Note:</strong> This analytical aggregation leverages composite indexing on <code>(purchase_date, asset_id)</code> and foreign keys to <code>categories</code>, eliminating full-table sequential scans. Excluding categories applies an efficient <code>c.name NOT IN (...)</code> filter directly at the database engine level.
+    </p>
+  </div>
+</details>
+
+<script>
+let currentMode = "monthwise";
+let currentPeriod = "all";
+const excludedCategories = new Set();
+let currentSqlQuery = "";
+
+const chart = document.getElementById("insight-chart");
+const chartStatus = document.getElementById("chart-status");
+const tableHead = document.getElementById("table-head");
+const tableBody = document.getElementById("table-body");
+const liveSqlCode = document.getElementById("live-sql-code");
+
+async function refreshData() {
+  chartStatus.textContent = "Querying live MySQL aggregates...";
+  const excludeParam = Array.from(excludedCategories).map(c => encodeURIComponent(c)).join(",");
+  const url = `/api/insights?mode=${currentMode}&period=${currentPeriod}&exclude=${excludeParam}`;
+  
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to load insights");
+    const data = await res.json();
+    
+    // 1. Update Live SQL Inspector
+    currentSqlQuery = data.sql_query || "";
+    liveSqlCode.textContent = currentSqlQuery;
+
+    // 2. Update Summary Metric Cards
+    const summary = data.summary || {};
+    document.getElementById("stat-total-val").textContent = "₹" + Number(summary.total_valuation || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    document.getElementById("stat-item-count").textContent = summary.asset_count || 0;
+    document.getElementById("summary-asset-count").textContent = `${summary.asset_count || 0} ASSETS ANALYZED`;
+    
+    const allCount = {{ all_categories|length }};
+    const incCount = summary.categories_included !== undefined ? summary.categories_included : (allCount - excludedCategories.size);
+    document.getElementById("stat-cat-count").textContent = `${incCount} / ${allCount}`;
+    
+    const catStatus = document.getElementById("stat-cat-status");
+    const skewNote = document.getElementById("stat-skew-note");
+    if (excludedCategories.size === 0) {
+      catStatus.textContent = "No categories excluded";
+      catStatus.style.color = "var(--green)";
+      skewNote.textContent = "Full household inventory";
+    } else {
+      catStatus.textContent = `Excluding ${excludedCategories.size} category: ${Array.from(excludedCategories).join(", ")}`;
+      catStatus.style.color = "var(--accent)";
+      skewNote.textContent = excludedCategories.has("Electronics") ? "Electronics excluded (unskewed baseline)" : "Filtered baseline view";
+    }
+
+    // 3. Render Mode-Specific Charts & Tables
+    if (currentMode === "monthwise") {
+      document.getElementById("view-title-eyebrow").textContent = "MONTH-BY-MONTH ANALYSIS";
+      document.getElementById("view-title-h2").textContent = "Historical Acquisition Trend";
+      document.getElementById("period-wrap").style.display = "block";
+      renderMonthwise(data);
+    } else {
+      document.getElementById("view-title-eyebrow").textContent = "CAPITAL ALLOCATION BY CATEGORY";
+      document.getElementById("view-title-h2").textContent = "Portfolio Asset Share";
+      document.getElementById("period-wrap").style.display = "none";
+      renderTotal(data);
+    }
+  } catch (err) {
+    chartStatus.textContent = "Error loading database insights: " + err.message;
+  }
+}
+
+function renderMonthwise(data) {
+  const points = data.monthly_data || [];
+  tableHead.innerHTML = `
+    <tr>
+      <th style="padding: 10px 14px;">Acquisition Month</th>
+      <th style="padding: 10px 14px; text-align: center;">Items Acquired</th>
+      <th style="padding: 10px 14px; text-align: right;">Monthly Expenditure</th>
+      <th style="padding: 10px 14px; text-align: right;">Share of Spend</th>
+    </tr>
+  `;
+
+  if (!points.length) {
+    chart.innerHTML = "";
+    chartStatus.textContent = "No purchase records found for the selected period and category filter.";
+    tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color: var(--ink-soft);">No records to display.</td></tr>`;
+    return;
+  }
+
+  const totalSpent = points.reduce((acc, p) => acc + p.total_spent, 0) || 1;
+  tableBody.innerHTML = points.map(p => `
+    <tr>
+      <td style="padding: 10px 14px; font-weight: 600; color: var(--ink);">${p.label || p.month}</td>
+      <td style="padding: 10px 14px; text-align: center;"><span class="badge" style="background:#eef6f0; color: var(--green); font-weight:600;">${p.item_count} items</span></td>
+      <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: var(--ink);">₹${p.total_spent.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+      <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: var(--ink-soft);">${((p.total_spent / totalSpent) * 100).toFixed(1)}%</td>
+    </tr>
+  `).join("");
+
+  // Draw SVG Timeline
+  const w = 800, h = 260, pad = 50;
+  const max = Math.max(...points.map(x => x.total_spent), 1);
+  const step = (w - pad * 2) / Math.max(points.length - 1, 1);
+  const pts = points.map((x, i) => `${pad + i * step},${h - pad - (x.total_spent / max) * (h - pad * 2)}`).join(" ");
+
+  chart.innerHTML = `
+    <!-- Grid Line -->
+    <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="#dfe5dc" stroke-width="1.5"/>
+    <!-- Area gradient / line -->
+    <polyline points="${pts}" fill="none" stroke="#2e7a4d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${points.map((x, i) => {
+      const cx = pad + i * step;
+      const cy = h - pad - (x.total_spent / max) * (h - pad * 2);
+      return `
+        <circle cx="${cx}" cy="${cy}" r="6" fill="#1b2a22" stroke="#ffffff" stroke-width="2">
+          <title>${x.label}: ₹${x.total_spent.toLocaleString('en-IN')}</title>
+        </circle>
+        <text x="${cx}" y="${h - 18}" text-anchor="middle" font-size="11" fill="#677b70" font-weight="600">${x.label.split(' ')[0]}</text>
+      `;
+    }).join("")}
+  `;
+
+  chartStatus.textContent = `${points.length} month(s) charted · Total Expenditure: ₹${totalSpent.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+function renderTotal(data) {
+  const categories = data.category_data || [];
+  tableHead.innerHTML = `
+    <tr>
+      <th style="padding: 10px 14px;">Category</th>
+      <th style="padding: 10px 14px; text-align: center;">Asset Count</th>
+      <th style="padding: 10px 14px; text-align: right;">Valuation (₹)</th>
+      <th style="padding: 10px 14px; text-align: right;">Portfolio Share</th>
+    </tr>
+  `;
+
+  if (!categories.length) {
+    chart.innerHTML = "";
+    chartStatus.textContent = "All categories are currently excluded. Click 'Include All' to restore.";
+    tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color: var(--ink-soft);">No active categories.</td></tr>`;
+    return;
+  }
+
+  const totalVal = categories.reduce((acc, c) => acc + c.total_value, 0) || 1;
+  tableBody.innerHTML = categories.map(c => `
+    <tr>
+      <td style="padding: 10px 14px; font-weight: 600; color: var(--ink);">${c.category}</td>
+      <td style="padding: 10px 14px; text-align: center;"><span class="badge" style="background:#eef6f0; color: var(--green); font-weight:600;">${c.count} assets</span></td>
+      <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: var(--ink);">₹${c.total_value.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+      <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: var(--green);">${c.pct}%</td>
+    </tr>
+  `).join("");
+
+  // Draw Horizontal Bar Chart inside SVG
+  const barH = 18;
+  const gap = 12;
+  const startY = 24;
+  const maxVal = Math.max(...categories.map(c => c.total_value), 1);
+  const totalSvgHeight = Math.max(260, startY + categories.length * (barH + gap) + 20);
+  chart.setAttribute("viewBox", `0 0 800 ${totalSvgHeight}`);
+
+  chart.innerHTML = categories.map((c, i) => {
+    const y = startY + i * (barH + gap);
+    const barW = Math.max(4, (c.total_value / maxVal) * 480);
+    return `
+      <text x="140" y="${y + 13}" text-anchor="end" font-size="12" fill="#24332d" font-weight="600">${c.category}</text>
+      <rect x="150" y="${y}" width="480" height="${barH}" rx="4" fill="#eef2ed"/>
+      <rect x="150" y="${y}" width="${barW}" height="${barH}" rx="4" fill="#2e7a4d"/>
+      <text x="${160 + barW}" y="${y + 13}" font-size="11.5" fill="#24332d" font-weight="700">₹${c.total_value.toLocaleString('en-IN')} (${c.pct}%)</text>
+    `;
+  }).join("");
+
+  chartStatus.textContent = `${categories.length} categories represented · Total Valuation: ₹${totalVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+// Mode Selection Buttons
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentMode = btn.dataset.mode;
+    refreshData();
+  };
+});
+
+// Period Selection Buttons
+document.querySelectorAll(".period").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".period").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentPeriod = btn.dataset.period;
+    refreshData();
+  };
+});
+
+// Category Chips Toggle
+document.querySelectorAll(".cat-chip").forEach(chip => {
+  chip.onclick = () => {
+    const cat = chip.dataset.category;
+    if (excludedCategories.has(cat)) {
+      excludedCategories.delete(cat);
+      chip.classList.remove("excluded");
+      chip.querySelector(".chip-indicator").textContent = "✓";
+    } else {
+      excludedCategories.add(cat);
+      chip.classList.add("excluded");
+      chip.querySelector(".chip-indicator").textContent = "✕";
+    }
+    updateElectronicsBtnText();
+    refreshData();
+  };
+});
+
+// Shortcut: Exclude Electronics Toggle Button
+const btnElectronics = document.getElementById("btn-toggle-electronics");
+function updateElectronicsBtnText() {
+  if (excludedCategories.has("Electronics")) {
+    btnElectronics.textContent = "✓ Include Electronics";
+    btnElectronics.style.color = "var(--green)";
+    btnElectronics.style.borderColor = "rgba(46,122,77,0.3)";
+  } else {
+    btnElectronics.textContent = "⚡ Exclude High-Cost (Electronics)";
+    btnElectronics.style.color = "#b85038";
+    btnElectronics.style.borderColor = "rgba(184,80,56,0.3)";
+  }
+}
+
+btnElectronics.onclick = () => {
+  const chip = document.querySelector(`.cat-chip[data-category="Electronics"]`);
+  if (excludedCategories.has("Electronics")) {
+    excludedCategories.delete("Electronics");
+    if (chip) {
+      chip.classList.remove("excluded");
+      chip.querySelector(".chip-indicator").textContent = "✓";
+    }
+  } else {
+    excludedCategories.add("Electronics");
+    if (chip) {
+      chip.classList.add("excluded");
+      chip.querySelector(".chip-indicator").textContent = "✕";
+    }
+  }
+  updateElectronicsBtnText();
+  refreshData();
+};
+
+// Reset All Categories Button
+document.getElementById("btn-reset-categories").onclick = () => {
+  excludedCategories.clear();
+  document.querySelectorAll(".cat-chip").forEach(chip => {
+    chip.classList.remove("excluded");
+    chip.querySelector(".chip-indicator").textContent = "✓";
+  });
+  updateElectronicsBtnText();
+  refreshData();
+};
+
+// Copy SQL to Clipboard
+document.getElementById("btn-copy-live-sql").onclick = () => {
+  if (!currentSqlQuery) return;
+  navigator.clipboard.writeText(currentSqlQuery).then(() => {
+    const btn = document.getElementById("btn-copy-live-sql");
+    const orig = btn.textContent;
+    btn.textContent = "✓ SQL Copied!";
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+};
+
+// Initial load
+refreshData();
+</script>
+{% endblock %}

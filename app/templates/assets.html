@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">ASSET DIRECTORY</p>
+    <h1>All Inventory Items</h1>
+    <p class="lede">Browse, filter, and manage your household items, equipment, warranties, and physical locations.</p>
+  </div>
+  <div class="heading-actions">
+    <span class="stamp">{{ assets|length }} ITEM{{ 'S' if assets|length != 1 else '' }} FOUND</span>
+    <a class="button" href="/assets/new">＋ ADD NEW ITEM</a>
+  </div>
+</div>
+
+<form class="search" method="get">
+  <input name="q" value="{{ q }}" placeholder="Search by name, room, description, or QR tag…">
+  
+  <select name="category" aria-label="Filter by category">
+    <option value="">All Categories</option>
+    {% for c in categories %}
+    <option value="{{ c }}" {% if category==c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="location" aria-label="Filter by location">
+    <option value="">All Locations</option>
+    {% for loc in locations %}
+    <option value="{{ loc }}" {% if selected_location==loc %}selected{% endif %}>{{ loc }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="status" aria-label="Filter by status">
+    <option value="">All Statuses</option>
+    {% for value, label in [("AVAILABLE","At Home"),("LENT","Out on Loan"),("LOST","Lost"),("DESTROYED","Damaged/Destroyed")] %}
+    <option value="{{ value }}" {% if status==value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <button type="submit">FILTER</button>
+  {% if q or category or status or selected_location %}
+  <a href="/assets" class="clear-filter-btn" title="Reset all filters">RESET</a>
+  {% endif %}
+</form>
+
+<div class="card-grid">
+  {% for a in assets %}
+  <a class="asset-card" href="/assets/{{ a.id }}">
+    <div class="card-media">
+      {% if a.photo_path %}
+      <img src="{{ a.photo_path }}" alt="{{ a.name }}" class="asset-photo">
+      {% else %}
+      <div class="photo-fallback qr-preview-box">
+        <img src="/qr/{{ a.id }}.svg" alt="QR Code" class="card-qr-img">
+        <span class="qr-tag-label">{{ a.qr_code or "ASSET-" ~ a.id }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card-top">
+      <span class="catalog-id">{{ a.category.name if a.category else "Uncategorized" }}</span>
+      <span class="status {{ a.status|lower }}">{{ "AT HOME" if a.status=="AVAILABLE" else a.status }}</span>
+    </div>
+
+    <h2>{{ a.name }}</h2>
+    <p>{{ a.location.name if a.location else "Location unassigned" }} · updated {{ a.updated_at.strftime("%d %b %Y") if a.updated_at else "—" }}</p>
+
+    <div class="card-bottom">
+      <span class="card-code">ID: {{ a.qr_code or "ASSET-" ~ a.id }}</span>
+      <span class="open-link">VIEW DETAILS →</span>
+    </div>
+  </a>
+  {% else %}
+  <div class="empty panel">
+    <p>No inventory items match the current search or filter criteria.</p>
+    <a href="/assets" class="button">VIEW ALL ITEMS</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
