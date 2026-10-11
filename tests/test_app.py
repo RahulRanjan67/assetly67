@@ -97,5 +97,55 @@ def test_aiven_url_and_vercel_entrypoint():
     assert "ssl-mode" not in normalized_url
     assert "ssl" in connect_args
 
+def test_nickname_and_like_search():
+    # Nickname search on assets
+    res = client.get("/assets?q=Laptop")
+    assert res.status_code == 200
+    assert "Dell Inspiron" in res.text
+    assert "Work Laptop" in res.text
+
+    # Edit nickname
+    res_nick = client.post("/assets/1/nickname", data={"nickname": "My Test Nickname"}, follow_redirects=False)
+    assert res_nick.status_code == 303
+    res_detail = client.get("/assets/1")
+    assert "My Test Nickname" in res_detail.text
+
+    # LIKE search in Query Lab catalog
+    res_ql = client.get("/api/query-lab?query=like_search")
+    assert res_ql.status_code == 200
+    assert "rows" in res_ql.json()
+
+def test_grocery_shopping_list():
+    # Live stock check
+    res_check = client.get("/api/grocery-stock-check?q=tea")
+    assert res_check.status_code == 200
+    data_check = res_check.json()
+    assert data_check["best_match"]["in_stock"] is True
+
+    # Initial assets count
+    initial_asset_count = client.get("/api/dashboard").json()["asset_count"]
+
+    # Add item to grocery planning list
+    res_add = client.post("/api/grocery-list", json={"name": "Organic Honey", "quantity": "2", "unit": "bottle", "notes": "Local bee farm"})
+    assert res_add.status_code == 200
+    item = res_add.json()
+    assert item["name"] == "Organic Honey"
+
+    # Grocery list is NOT automatically added into My Things (assets)
+    after_asset_count = client.get("/api/dashboard").json()["asset_count"]
+    assert after_asset_count == initial_asset_count
+    res_things = client.get("/assets?q=Organic+Honey")
+    assert "No items found" in res_things.text
+
+    # Toggle grocery item checked
+    res_toggle = client.post(f"/api/grocery-list/{item['id']}/toggle")
+    assert res_toggle.status_code == 200
+    assert res_toggle.json()["checked"] is True
+
+    # Delete grocery item
+    res_del = client.delete(f"/api/grocery-list/{item['id']}")
+    assert res_del.status_code == 200
+
+
 
 

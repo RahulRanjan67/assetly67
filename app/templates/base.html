@@ -2,31 +2,37 @@
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or "Assetly" }} - Assetly</title>
+  <title>{{ title or "Assetly" }} &middot; Assetly Home Inventory</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/">
       <span class="mark">A</span>
-      <span>Assetly</span>
+      <span>Assetly<small>Home Inventory</small></span>
     </a>
 
+    {% set path = request.url.path %}
     <nav class="main-nav">
-      <a href="/" class="nav-item">Home</a>
-      <a href="/assets" class="nav-item">My Things</a>
-      <a href="/snacks" class="nav-item">Snacks</a>
-      <a href="/kitchen-grocery" class="nav-item">Kitchen &amp; Grocery</a>
-      <a href="/lending" class="nav-item">Borrowing</a>
-      <a href="/reports" class="nav-item">Insights</a>
-      <a href="/query-lab" class="nav-item">Query Lab</a>
+      <a href="/" class="nav-item {% if path == '/' %}active{% endif %}">Home</a>
+      <a href="/assets" class="nav-item {% if path.startswith('/assets') or path.startswith('/lost') %}active{% endif %}">My Things</a>
+      <a href="/snacks" class="nav-item {% if path.startswith('/snacks') %}active{% endif %}">Snacks</a>
+      <a href="/kitchen-grocery" class="nav-item {% if path.startswith('/kitchen-grocery') or path.startswith('/consumables') %}active{% endif %}">Kitchen &amp; Grocery</a>
+      <a href="/lending" class="nav-item {% if path.startswith('/lending') %}active{% endif %}">Borrowing</a>
+      <a href="/reports" class="nav-item {% if path.startswith('/reports') %}active{% endif %}">Insights</a>
+      <a href="/query-lab" class="nav-item {% if path.startswith('/query-lab') %}active{% endif %}">Query Lab</a>
     </nav>
 
     <div class="topbar-right">
       <form class="topbar-search" action="/assets" method="get">
-        <input type="search" name="q" placeholder="Search items, locations..." value="{{ q or '' }}" aria-label="Search inventory">
-        <button type="submit">Search</button>
+        <input type="search" name="q" placeholder="Search items, nicknames, locations..." value="{{ q or '' }}" aria-label="Search inventory">
+        <button type="submit" title="Search"><i class="bi bi-search"></i></button>
       </form>
+      <div class="connection" id="connection-status">
+        <i class="status-dot"></i>
+        <span id="connection-label">ONLINE</span>
+      </div>
       <span id="offline-note" class="offline-note"></span>
     </div>
   </header>
@@ -36,8 +42,12 @@
   </main>
 
   <footer>
-    <div>Assetly Home Inventory</div>
-    <div id="sync-status"></div>
+    <div class="footer-left">
+      <strong>Assetly</strong> &middot; Personal &amp; Household Inventory Management
+    </div>
+    <div class="footer-right">
+      <span id="sync-status">Database Synchronized</span>
+    </div>
   </footer>
 
   <script src="/static/app.js"></script>

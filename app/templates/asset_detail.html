@@ -47,6 +47,19 @@
 
   <div class="panel">
     <div class="data-row">
+      <span>NICKNAME</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <b>{{ asset.nickname or "None set" }}</b>
+        <details style="display:inline-block;">
+          <summary class="text-button" style="font-size:11px; cursor:pointer;">(Edit)</summary>
+          <form method="post" action="/assets/{{ asset.id }}/nickname" style="margin-top:6px; display:flex; gap:6px;">
+            <input name="nickname" value="{{ asset.nickname or '' }}" placeholder="Enter nickname..." style="padding:4px 6px; font-size:12px; width:150px; border:1px solid var(--line); border-radius:4px;">
+            <button class="button button-sm">Save</button>
+          </form>
+        </details>
+      </div>
+    </div>
+    <div class="data-row">
       <span>LOCATION</span>
       <b>{{ asset.location.name if asset.location else "Not assigned" }}</b>
     </div>
@@ -147,6 +160,7 @@
         <tbody>
           <tr><td><code>id</code></td><td>INT PK</td><td>{{ asset.id }}</td></tr>
           <tr><td><code>name</code></td><td>VARCHAR(160)</td><td>{{ asset.name }}</td></tr>
+          <tr><td><code>nickname</code></td><td>VARCHAR(160)</td><td>{{ asset.nickname or "NULL" }}</td></tr>
           <tr><td><code>status</code></td><td>VARCHAR(30)</td><td>{{ asset.status }}</td></tr>
           <tr><td><code>condition</code></td><td>VARCHAR(40)</td><td>{{ asset.condition }}</td></tr>
           <tr><td><code>photo_path</code></td><td>VARCHAR(500)</td><td>{{ asset.photo_path or "NULL" }}</td></tr>

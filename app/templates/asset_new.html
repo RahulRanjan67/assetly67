@@ -10,10 +10,17 @@
 
 <section class="panel">
   <form class="quick-form" method="post" action="/assets" enctype="multipart/form-data" data-offline-form>
-    <label>
-      Item Name *
-      <input name="name" required maxlength="160" placeholder="Item name">
-    </label>
+    <div class="form-row-2">
+      <label>
+        Item Name *
+        <input name="name" required maxlength="160" placeholder="e.g. Dell Inspiron 14, Mixer grinder">
+      </label>
+
+      <label>
+        Nickname (Optional, helps in search)
+        <input name="nickname" maxlength="160" placeholder="e.g. Work Laptop, Chotu Mixer, Office Chair">
+      </label>
+    </div>
 
     <div class="form-row-2">
       <label>

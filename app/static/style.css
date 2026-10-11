@@ -1,10 +1,11 @@
 :root {
-  --ink: #1f2924;
+  --ink: #1e2c26;
   --muted: #5c6b63;
   --paper: #f8f8f6;
   --cream: #f0efe9;
   --line: #d4dbd6;
   --green: #266841;
+  --green-hover: #1f5434;
   --red: #b83b2b;
   --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono: Consolas, "Courier New", monospace;
@@ -28,67 +29,99 @@ a {
   text-decoration: none;
 }
 
+/* ==========================================================================
+   TOPBAR & NAVIGATION (ORIGINAL SELECTION STYLE)
+   ========================================================================== */
 .topbar {
-  padding: 12px 4vw;
+  min-height: 64px;
+  padding: 10px 3vw;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 18px;
   border-bottom: 1px solid var(--line);
   background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .brand {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   font-weight: 700;
   font-size: 18px;
+  flex-shrink: 0;
+}
+
+.brand small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.1;
 }
 
 .mark {
   background: var(--ink);
   color: #ffffff;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .main-nav {
   display: flex;
-  gap: 16px;
+  gap: 6px;
   font-size: 13.5px;
   font-weight: 600;
   flex: 1;
+  align-items: center;
 }
 
 .nav-item {
-  color: #35443d;
-  padding: 4px 2px;
+  color: #3b4c43;
+  padding: 6px 12px;
+  border-radius: 6px;
   white-space: nowrap;
 }
 
 .nav-item:hover {
+  background: #edf3ee;
   color: var(--green);
-  text-decoration: underline;
+}
+
+.nav-item.active {
+  background: #eaf5ee;
+  color: var(--green);
+  font-weight: 700;
+  border: 1px solid #cde7d5;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .topbar-search {
   display: flex;
   align-items: center;
+  background: #f4f7f4;
   border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 3px 6px 3px 12px;
+}
+
+.topbar-search:focus-within {
+  border-color: var(--green);
   background: #ffffff;
-  border-radius: 4px;
 }
 
 .topbar-search input {
@@ -96,19 +129,45 @@ a {
   background: transparent;
   outline: 0;
   font: inherit;
-  font-size: 13px;
-  padding: 6px 8px;
-  width: 180px;
+  font-size: 12.5px;
+  width: 190px;
+  color: var(--ink);
 }
 
 .topbar-search button {
-  background: var(--cream);
+  background: transparent;
   border: 0;
-  border-left: 1px solid var(--line);
   cursor: pointer;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--muted);
+  border-radius: 50%;
+}
+
+.topbar-search button:hover {
+  color: var(--green);
+}
+
+.connection {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #edf7f1;
+  padding: 4px 9px;
+  border-radius: 12px;
+  border: 1px solid #d4ebd9;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--green);
+  border-radius: 50%;
 }
 
 .offline-note {
@@ -117,10 +176,13 @@ a {
   font-weight: 600;
 }
 
+/* ==========================================================================
+   MAIN LAYOUT & HEADINGS (CLOSER TO LEFT MARGIN)
+   ========================================================================== */
 main {
-  max-width: 1180px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 28px 4vw 60px;
+  padding: 22px 28px 56px;
 }
 
 .hero,
@@ -130,7 +192,7 @@ main {
   justify-content: space-between;
   align-items: flex-end;
   gap: 20px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .eyebrow {
@@ -148,7 +210,7 @@ h1 {
 
 h2 {
   font-size: 18px;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .lede {
@@ -156,10 +218,23 @@ h2 {
   margin: 4px 0 0;
 }
 
-.section-title-wrap {
-  margin: 24px 0 12px;
+.summary-count-badge {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--cream);
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
 }
 
+.section-title-wrap {
+  margin: 22px 0 12px;
+}
+
+/* ==========================================================================
+   METRICS & DASHBOARD
+   ========================================================================== */
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -279,7 +354,9 @@ h2 {
   margin-top: 4px;
 }
 
-/* Status text: plain label, no circular-edged rectangle */
+/* ==========================================================================
+   STATUS & BUTTONS
+   ========================================================================== */
 .status {
   font-size: 11px;
   font-weight: 700;
@@ -296,15 +373,22 @@ h2 {
 
 .button,
 .search button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--ink);
   color: #ffffff;
   border: 1px solid var(--ink);
   border-radius: 4px;
   padding: 8px 14px;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.button:hover,
+.search button:hover {
+  background: #121c17;
 }
 
 .button-sm {
@@ -316,6 +400,10 @@ h2 {
   background: var(--cream);
   color: var(--ink);
   border: 1px solid var(--line);
+}
+
+.button-secondary:hover {
+  background: #e6e4dc;
 }
 
 .text-button {
@@ -336,6 +424,9 @@ h2 {
   color: var(--red);
 }
 
+/* ==========================================================================
+   FORMS & INPUTS
+   ========================================================================== */
 .quick-form {
   display: grid;
   gap: 12px;
@@ -371,7 +462,7 @@ h2 {
 .search {
   display: flex;
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   align-items: center;
 }
 
@@ -393,6 +484,34 @@ h2 {
   background: #ffffff;
 }
 
+.active-sql-banner {
+  background: #f1f6f2;
+  border: 1px solid #c8ded0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.active-sql-banner span {
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.active-sql-banner code {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   CARDS & GRID
+   ========================================================================== */
 .card-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -467,7 +586,17 @@ h2 {
 
 .asset-card h2 {
   font-size: 17px;
-  margin: 8px 0 4px;
+  margin: 8px 0 2px;
+}
+
+.nickname-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--green);
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .asset-card p {
@@ -482,6 +611,7 @@ h2 {
   padding-top: 8px;
 }
 
+/* Detail page */
 .detail-media-panel {
   display: flex;
   flex-direction: column;
@@ -563,6 +693,9 @@ h2 {
   padding-top: 12px;
 }
 
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
 .table-wrap,
 .table-responsive {
   border: 1px solid var(--line);
@@ -644,21 +777,32 @@ th {
   font-size: 12.5px;
 }
 
-/* Authentic MySQL CLI Terminal Styles for Query Lab */
+/* ==========================================================================
+   AUTHENTIC MYSQL CLI TERMINAL & QUERY LAB (NO SCREEN OVERFLOW)
+   ========================================================================== */
+.query-lab-page {
+  width: 100%;
+}
+
 .mysql-terminal-box {
   background: #0c0c0c;
   color: #dcdcdc;
   border: 1px solid #333333;
   font-family: var(--font-mono);
   margin-bottom: 24px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .mysql-terminal-bar {
   background: #1f1f1f;
   color: #aaaaaa;
-  padding: 6px 12px;
+  padding: 7px 12px;
   font-size: 12px;
   border-bottom: 1px solid #333333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .mysql-prompt-form {
@@ -696,15 +840,60 @@ th {
   margin-top: 10px;
 }
 
+.mysql-like-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #222222;
+  flex-wrap: wrap;
+}
+
+.mysql-like-bar label {
+  font-size: 12px;
+  color: #aaaaaa;
+  font-weight: 600;
+}
+
+.mysql-like-bar input {
+  flex: 1;
+  min-width: 240px;
+  background: #141414;
+  color: #f0f0f0;
+  border: 1px solid #3a3a3a;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  border-radius: 4px;
+}
+
+.mysql-cmd-echo {
+  padding: 8px 12px;
+  background: #161616;
+  color: #6ed298;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  border-bottom: 1px solid #333333;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .query-lab {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  width: 100%;
 }
 
 .query-card {
   border: 1px solid var(--line);
   background: #ffffff;
   padding: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .query-card-header {
@@ -720,18 +909,25 @@ th {
   margin: 6px 0;
 }
 
+/* Query storage box: visual line continuation without extending card width */
 .sql-code {
-  margin: 6px 0 0;
-  padding: 8px 10px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
   background: #141414;
   color: #dcdcdc;
   font-family: var(--font-mono);
   font-size: 12.5px;
-  overflow-x: auto;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .query-result-container {
   margin-top: 10px;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .mysql-out {
@@ -751,50 +947,308 @@ th {
   color: #ff8b8b;
 }
 
-/* Insights Controls */
+/* ==========================================================================
+   INSIGHTS CONTROLS (#panel) & SUMMARY CARD GRID (#summary-card-grid)
+   ========================================================================== */
+.insights-control-panel {
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.insights-controls-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.control-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green);
+}
+
 .mode-toggle-group {
   display: inline-flex;
-  border: 1px solid var(--line);
   background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px;
+  gap: 4px;
 }
 
 .mode-btn {
   border: 0;
   background: transparent;
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 12.5px;
   font-weight: 600;
+  border-radius: 4px;
   cursor: pointer;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mode-btn.active {
-  background: var(--ink);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--green);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.period-toggle {
+  display: inline-flex;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.period-btn {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.period-btn.active {
+  background: #ffffff;
+  color: var(--green);
+  font-weight: 700;
+}
+
+.insights-controls-bottom {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.filter-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.filter-help {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 3px 0 0;
+}
+
+.filter-bar-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .category-chips-wrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
   border: 1px solid var(--line);
+  border-radius: 16px;
   background: #ffffff;
-  padding: 4px 8px;
   font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
   cursor: pointer;
 }
 
-.cat-chip.excluded {
-  color: var(--muted);
-  text-decoration: line-through;
-  background: var(--cream);
+.cat-chip:hover {
+  border-color: var(--green);
+  background: #f7faf8;
 }
 
+.cat-chip .chip-indicator {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e7f4eb;
+  color: var(--green);
+  font-size: 11px;
+}
+
+.cat-chip.excluded {
+  background: #fdf6f5;
+  border-color: #f3d4ce;
+  color: #a05a4e;
+  text-decoration: line-through;
+}
+
+.cat-chip.excluded .chip-indicator {
+  background: #f9deda;
+  color: var(--red);
+}
+
+.summary-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.summary-cards-grid .stat-box {
+  padding: 16px 18px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  border-top: 3px solid var(--green);
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 6px 0 2px;
+}
+
+.stat-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   MARKET GROCERY SHOPPING LIST PLANNER
+   ========================================================================== */
+.grocery-planner-panel {
+  margin-bottom: 24px;
+  border: 1px solid #c9d8ce;
+  background: #ffffff;
+  border-top: 3px solid var(--green);
+}
+
+.planner-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.grocery-form-grid {
+  display: grid;
+  grid-template-columns: 2fr 90px 105px 1.5fr auto;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.grocery-form-grid label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.grocery-submit-col button {
+  white-space: nowrap;
+}
+
+.live-stock-banner {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  background: #f0f4f1;
+  border: 1px solid #d4e2d7;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-stock-banner.ok {
+  background: #edf7f0;
+  border-color: #bee2c8;
+  color: #1a5632;
+}
+
+.live-stock-banner.low {
+  background: #fdf5f3;
+  border-color: #f7cfc7;
+  color: #9c3b2d;
+}
+
+.live-stock-banner.neutral {
+  background: #f7f7f5;
+  border-color: #e2e2dc;
+  color: #4f5a54;
+}
+
+.stock-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.stock-pill.ok {
+  background: #edf7f0;
+  color: #1a5632;
+  border: 1px solid #bee2c8;
+}
+
+.stock-pill.low {
+  background: #fdf5f3;
+  color: #9c3b2d;
+  border: 1px solid #f7cfc7;
+}
+
+.stock-pill.none {
+  background: #f3f3f0;
+  color: #64736a;
+  border: 1px solid #dcdcd6;
+}
+
+.grocery-row-checked td {
+  text-decoration: line-through;
+  color: var(--muted);
+  background: #fafaf8;
+}
+
+/* ==========================================================================
+   FOOTER & RESPONSIVE DESIGN
+   ========================================================================== */
 footer {
   border-top: 1px solid var(--line);
-  padding: 16px 4vw;
+  padding: 16px 3vw;
   display: flex;
   justify-content: space-between;
   color: var(--muted);
@@ -802,15 +1256,18 @@ footer {
   background: #ffffff;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 950px) {
   .topbar {
     flex-wrap: wrap;
+    min-height: auto;
   }
   .main-nav {
     order: 3;
     overflow-x: auto;
     width: 100%;
+    padding-bottom: 4px;
   }
+  .summary-cards-grid,
   .metric-grid,
   .card-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -822,6 +1279,9 @@ footer {
   .category-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+  .grocery-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -830,6 +1290,7 @@ footer {
   .detail-head {
     display: block;
   }
+  .summary-cards-grid,
   .metric-grid,
   .card-grid {
     grid-template-columns: 1fr;
@@ -846,5 +1307,13 @@ footer {
   }
   .form-row-2 {
     grid-template-columns: 1fr;
+  }
+  .grocery-form-grid {
+    grid-template-columns: 1fr;
+  }
+  footer {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
   }
 }

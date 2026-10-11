@@ -96,6 +96,22 @@ except Exception:
         raise
 
 
+def ensure_schema_columns():
+    try:
+        insp = inspect(engine)
+        if "assets" in insp.get_table_names():
+            cols = {c["name"].lower() for c in insp.get_columns("assets")}
+            if "nickname" not in cols:
+                with engine.connect() as conn:
+                    conn.exec_driver_sql("ALTER TABLE assets ADD COLUMN nickname VARCHAR(160) NULL")
+                    conn.commit()
+    except Exception:
+        pass
+
+
+ensure_schema_columns()
+
+
 def ensure_mysql_views(force: bool = False):
     schema_path = base.parent / "sql" / "mysql_schema.sql"
     if not schema_path.exists():
@@ -180,9 +196,29 @@ templates = Jinja2Templates(directory=base / "templates")
 categories = ["Furniture", "Snacks", "Books", "Miscellaneous", "Stationery", "Daily Use", "Kitchen & Grocery", "Documents", "Electronics", "Vehicles", "Clothing"]
 category_fields = {"Electronics": ["manufacturer", "model_number", "serial_number", "warranty_end"], "Vehicles": ["manufacturer", "model_number", "serial_number", "registration_number"], "Documents": ["document_number", "issuer", "expiry_date"], "Clothing": ["size", "color"], "Snacks": ["brand", "unit", "expiry_date"], "Kitchen & Grocery": ["brand", "unit", "expiry_date"]}
 def seed(force: bool = False):
+    default_nicknames = {
+        "Dell Inspiron 14": "Work Laptop",
+        "LG monitor": "Desk Screen",
+        "Bluetooth speaker": "Living Room Speaker",
+        "Floor lamp": "Reading Lamp",
+        "Study chair": "Office Chair",
+        "City bicycle": "Daily Cycle",
+        "Mixer grinder": "Kitchen Mixer",
+        "Coffee press": "French Press",
+        "Passport folder": "Travel Docs",
+    }
+    consumables_seed = [
+        ("Oat biscuits", "Grain House", "Snacks", 3, 5, 75, 10, 85.0, "pack"),
+        ("Roasted almonds", "NutriFarm", "Snacks", 2, 4, 65, 8, 220.0, "pack"),
+        ("Masala chips", "Snack Box", "Snacks", 4, 8, 10, 10, 40.0, "pack"),
+        ("Dark chocolate", "Cocoa Craft", "Snacks", 1, 2, 14, 5, 120.0, "pack"),
+        ("Green tea", "Hill Garden", "Kitchen & Grocery", 2, 12, 5, 15, 160.0, "pack"),
+        ("Basmati rice", "India Gate", "Kitchen & Grocery", 2, 3, 20, 5, 110.0, "kg"),
+        ("Sunflower oil", "Fortune", "Kitchen & Grocery", 2, 2, 18, 3, 145.0, "litre"),
+        ("Whole wheat flour", "Aashirvaad", "Kitchen & Grocery", 1, 4, 15, 5, 55.0, "kg"),
+        ("Turmeric powder", "Everest", "Kitchen & Grocery", 1, 1, 30, 3, 65.0, "pack"),
+    ]
     with Session(engine) as db:
-        if not force and (db.scalar(select(func.count(Asset.id))) or 0) >= 30:
-            return
         owner = db.scalar(select(User).where(User.email == "aarav@assetly.local"))
         if not owner:
             owner = User(name="Aarav Mehta", email="aarav@assetly.local")
@@ -200,6 +236,31 @@ def seed(force: bool = False):
             if not locs[name]:
                 locs[name] = Location(name=name)
                 db.add(locs[name])
+        db.flush()
+
+        for name, brand, cat_name, reorder, used, age, init_qty, unit_cost, unit_name in consumables_seed:
+            item = db.scalar(select(Consumable).where(Consumable.name == name))
+            bought = date.today() - timedelta(days=age)
+            if not item:
+                item = Consumable(name=name, brand=brand, category=cats[cat_name], location=locs["Cupboard"], unit=unit_name, reorder_level=reorder, last_bought_at=bought, use_count=used)
+                db.add(item)
+                db.flush()
+            if not item.batches:
+                batch = ConsumableBatch(purchase_date=bought, initial_quantity=init_qty, unit_cost=unit_cost, expiry_date=date.today() + timedelta(days=45))
+                batch.movements.extend([
+                    StockMovement(movement_type="PURCHASE", quantity_change=init_qty, movement_date=bought),
+                    StockMovement(movement_type="USED", quantity_change=-used, movement_date=date.today())
+                ])
+                item.batches.append(batch)
+
+        if not force and (db.scalar(select(func.count(Asset.id))) or 0) >= 30:
+            for item_name, nick in default_nicknames.items():
+                existing_asset = db.scalar(select(Asset).where(Asset.name == item_name))
+                if existing_asset and not existing_asset.nickname:
+                    existing_asset.nickname = nick
+            db.commit()
+            return
+
         people = {}
         for name, contact in [("Maya", "maya@example.com"), ("Rohan", "rohan@example.com"), ("Neha", "neha@example.com")]:
             people[name] = db.scalar(select(Person).where(Person.name == name))
@@ -249,9 +310,11 @@ def seed(force: bool = False):
             for i, name in enumerate(names):
                 asset = db.scalar(select(Asset).where(Asset.user_id == owner.id, Asset.name == name, Asset.category_id == cats[cat_name].id))
                 if not asset:
-                    asset = Asset(user=owner, name=name, category=cats[cat_name], location=locs[places[i % len(places)]], status="AVAILABLE", description=f"Handy {cat_name.lower()} item", qr_code=f"ASSET-{1000 + categories.index(cat_name) * 10 + i}")
+                    asset = Asset(user=owner, name=name, nickname=default_nicknames.get(name), category=cats[cat_name], location=locs[places[i % len(places)]], status="AVAILABLE", description=f"Handy {cat_name.lower()} item", qr_code=f"ASSET-{1000 + categories.index(cat_name) * 10 + i}")
                     db.add(asset)
                     db.flush()
+                elif not asset.nickname and name in default_nicknames:
+                    asset.nickname = default_nicknames[name]
                 meta = item_meta.get(name, (180, 450.0, "Local shop"))
                 if not asset.purchases:
                     asset.purchases.append(Purchase(purchase_date=date.today() - timedelta(days=meta[0]), base_price=meta[1], seller=meta[2], invoice_number=f"DEMO-{asset.id}"))
@@ -263,28 +326,6 @@ def seed(force: bool = False):
                     asset.expenses.append(Expense(expense_date=date.today() - timedelta(days=12), amount=75, expense_type="Care", notes="Demo accessory or service"))
                 if cat_name == "Documents" and not db.scalar(select(Document.id).where(Document.asset_id == asset.id)):
                     db.add(Document(asset_id=asset.id, filename=f"{name.lower().replace(' ', '-')}.pdf", file_type="application/pdf", file_size=24576, storage_path=None))
-        db.flush()
-        consumables_seed = [
-            ("Oat biscuits", "Grain House", "Snacks", 3, 5, 75, 10, 85.0),
-            ("Roasted almonds", "NutriFarm", "Snacks", 2, 4, 65, 8, 220.0),
-            ("Masala chips", "Snack Box", "Snacks", 4, 8, 10, 10, 40.0),
-            ("Dark chocolate", "Cocoa Craft", "Snacks", 1, 2, 14, 5, 120.0),
-            ("Green tea", "Hill Garden", "Kitchen & Grocery", 2, 12, 5, 15, 160.0)
-        ]
-        for name, brand, cat_name, reorder, used, age, init_qty, unit_cost in consumables_seed:
-            item = db.scalar(select(Consumable).where(Consumable.name == name))
-            bought = date.today() - timedelta(days=age)
-            if not item:
-                item = Consumable(name=name, brand=brand, category=cats[cat_name], location=locs["Cupboard"], unit="pack", reorder_level=reorder, last_bought_at=bought, use_count=used)
-                db.add(item)
-                db.flush()
-            if not item.batches:
-                batch = ConsumableBatch(purchase_date=bought, initial_quantity=init_qty, unit_cost=unit_cost, expiry_date=date.today() + timedelta(days=45))
-                batch.movements.extend([
-                    StockMovement(movement_type="PURCHASE", quantity_change=init_qty, movement_date=bought),
-                    StockMovement(movement_type="USED", quantity_change=-used, movement_date=date.today())
-                ])
-                item.batches.append(batch)
         db.flush()
         lent = db.scalar(select(Asset).where(Asset.name == "City bicycle", Asset.user_id == owner.id))
         free_person, paid_person = people["Maya"], people["Rohan"]
@@ -329,11 +370,22 @@ def dashboard(request: Request):
 def assets(request: Request, q: str = "", status: str = "", category: str = "", location: str = ""):
     with Session(engine) as db:
         stmt = select(Asset).options(joinedload(Asset.category), joinedload(Asset.location), joinedload(Asset.purchases))
+        like_sql = ""
         if q:
-            term = f"%{q.strip()}%"
+            raw_q = q.strip()
+            term = raw_q if "%" in raw_q else f"%{raw_q}%"
+            safe_term = term.replace("'", "''")
+            like_sql = (
+                f"SELECT a.* FROM assets a LEFT JOIN categories c ON c.id = a.category_id "
+                f"LEFT JOIN locations l ON l.id = a.location_id "
+                f"WHERE a.name LIKE '{safe_term}' OR a.nickname LIKE '{safe_term}' "
+                f"OR a.description LIKE '{safe_term}' OR a.qr_code LIKE '{safe_term}' "
+                f"OR c.name LIKE '{safe_term}' OR l.name LIKE '{safe_term}';"
+            )
             stmt = stmt.join(Asset.category, isouter=True).join(Asset.location, isouter=True)
             stmt = stmt.where(
                 Asset.name.ilike(term) |
+                Asset.nickname.ilike(term) |
                 Asset.description.ilike(term) |
                 Asset.qr_code.ilike(term) |
                 Category.name.ilike(term) |
@@ -347,7 +399,7 @@ def assets(request: Request, q: str = "", status: str = "", category: str = "", 
             stmt = stmt.join(Asset.location, isouter=True).where(Location.name == location)
         rows = db.scalars(stmt.order_by(Asset.name)).unique().all()
         loc_rows = db.scalars(select(Location.name).order_by(Location.name)).all()
-        return page(request, "assets.html", title="My things", assets=rows, q=q, status=status, category=category, selected_location=location, categories=categories, locations=loc_rows)
+        return page(request, "assets.html", title="My things", assets=rows, q=q, status=status, category=category, selected_location=location, categories=categories, locations=loc_rows, like_sql=like_sql)
 @app.get("/assets/new", response_class=HTMLResponse)
 def new_asset(request: Request, category: str = "Miscellaneous"):
     if category not in categories:
@@ -363,7 +415,7 @@ def lost_items(request: Request, status: str = ""):
             stmt = stmt.where(Asset.status == status)
         rows = db.scalars(stmt.order_by(Asset.updated_at.desc())).unique().all()
         loc_rows = db.scalars(select(Location.name).order_by(Location.name)).all()
-        return page(request, "assets.html", title="Lost and damaged", assets=rows, q="", status=status, category="", selected_location="", categories=categories, locations=loc_rows)
+        return page(request, "assets.html", title="Lost and damaged", assets=rows, q="", status=status, category="", selected_location="", categories=categories, locations=loc_rows, like_sql="")
 @app.get("/assets/{asset_id}", response_class=HTMLResponse)
 def asset_detail(request: Request, asset_id: int):
     with Session(engine) as db:
@@ -371,6 +423,17 @@ def asset_detail(request: Request, asset_id: int):
         if not a:
             return HTMLResponse("Not found", status_code=404)
         return page(request, "asset_detail.html", title=a.name, asset=a, tco=sum((p.base_price + p.shipping_cost for p in a.purchases), 0), qr=a.qr_code or f"ASSET-{a.id}")
+@app.post("/assets/{asset_id}/nickname", response_class=RedirectResponse)
+def update_asset_nickname(asset_id: int, nickname: str = Form("")):
+    with Session(engine) as db:
+        asset = db.get(Asset, asset_id)
+        if not asset:
+            raise HTTPException(404, "Asset not found")
+        clean_nick = nickname.strip()[:160]
+        asset.nickname = clean_nick if clean_nick else None
+        asset.version_no += 1
+        db.commit()
+    return RedirectResponse(f"/assets/{asset_id}", status_code=303)
 @app.post("/assets/{asset_id}/photo", response_class=RedirectResponse)
 async def upload_asset_photo(asset_id: int, photo: UploadFile = File(...)):
     if not photo or not photo.filename:
@@ -406,7 +469,7 @@ def remove_asset_photo(asset_id: int):
         db.commit()
     return RedirectResponse(f"/assets/{asset_id}", status_code=303)
 @app.post("/assets", response_class=RedirectResponse)
-async def create_asset(name: str = Form(...), category: str = Form("Miscellaneous"), location: str = Form("Entry shelf"), price: float = Form(0), condition: str = Form("Good"), description: str = Form(""), photo: UploadFile | None = File(None), purchase_date: date | None = Form(None), warranty_provider: str = Form(""), warranty_end: date | None = Form(None)):
+async def create_asset(name: str = Form(...), nickname: str = Form(""), category: str = Form("Miscellaneous"), location: str = Form("Entry shelf"), price: float = Form(0), condition: str = Form("Good"), description: str = Form(""), photo: UploadFile | None = File(None), purchase_date: date | None = Form(None), warranty_provider: str = Form(""), warranty_end: date | None = Form(None)):
     with Session(engine) as db:
         owner = db.scalar(select(User))
         cat = db.scalar(select(Category).where(Category.name == category)) or Category(name=category)
@@ -426,12 +489,58 @@ async def create_asset(name: str = Form(...), category: str = Form("Miscellaneou
                     raise HTTPException(400, "invalid upload path")
                 target.write_bytes(content)
                 path = f"/static/uploads/{filename}"
-        a = Asset(user=owner, name=name[:160], category=cat, location=loc, condition=condition[:40], description=description[:2000], photo_path=path, qr_code=f"ASSET-{secrets.token_hex(4).upper()}", purchases=[Purchase(purchase_date=purchase_date or date.today(), base_price=price)])
+        clean_nick = nickname.strip()[:160] if nickname else ""
+        a = Asset(user=owner, name=name[:160], nickname=clean_nick or None, category=cat, location=loc, condition=condition[:40], description=description[:2000], photo_path=path, qr_code=f"ASSET-{secrets.token_hex(4).upper()}", purchases=[Purchase(purchase_date=purchase_date or date.today(), base_price=price)])
         if warranty_provider and warranty_end:
             a.warranties.append(Warranty(provider=warranty_provider[:160], start_date=purchase_date or date.today(), end_date=warranty_end))
         db.add(a)
         db.commit()
     return RedirectResponse("/assets", status_code=303)
+
+def match_pantry_stock(name_query: str, stock_catalog: list[dict]) -> dict:
+    q_low = (name_query or "").strip().lower()
+    if not q_low:
+        return {"in_stock": False, "stock": 0, "unit": "", "matched_name": None, "low_stock": False}
+    for s in stock_catalog:
+        s_name = s["name"].lower()
+        s_brand = (s.get("brand") or "").lower()
+        if q_low == s_name or q_low in s_name or s_name in q_low or (s_brand and q_low in s_brand):
+            qty = s["stock"]
+            return {
+                "in_stock": qty > 0,
+                "stock": qty,
+                "unit": s["unit"],
+                "matched_name": s["name"],
+                "brand": s.get("brand") or "",
+                "location": s.get("location") or "Kitchen",
+                "reorder_level": s.get("reorder_level", 1),
+                "low_stock": qty <= s.get("reorder_level", 1),
+            }
+    return {"in_stock": False, "stock": 0, "unit": "", "matched_name": None, "low_stock": False}
+
+def build_stock_catalog(db: Session) -> list[dict]:
+    all_cons = db.scalars(
+        select(Consumable).options(
+            joinedload(Consumable.category),
+            joinedload(Consumable.location),
+            joinedload(Consumable.batches).joinedload(ConsumableBatch.movements),
+        )
+    ).unique().all()
+    catalog = []
+    for c in all_cons:
+        qty = sum(m.quantity_change for b in c.batches for m in b.movements)
+        catalog.append({
+            "id": c.id,
+            "name": c.name,
+            "brand": c.brand or "",
+            "category": c.category.name if c.category else "Grocery",
+            "location": c.location.name if c.location else "Kitchen",
+            "stock": qty,
+            "unit": c.unit,
+            "reorder_level": c.reorder_level,
+        })
+    return catalog
+
 @app.get("/consumables", response_class=HTMLResponse)
 def consumables(request: Request, category: str = "", q: str = ""):
     with Session(engine) as db:
@@ -439,12 +548,37 @@ def consumables(request: Request, category: str = "", q: str = ""):
         if category in {"Snacks", "Kitchen & Grocery"}:
             stmt = stmt.where(Consumable.category.has(name=category))
         if q:
-            term = f"%{q.strip()}%"
+            raw_q = q.strip()
+            term = raw_q if "%" in raw_q else f"%{raw_q}%"
             stmt = stmt.where(Consumable.name.ilike(term) | Consumable.brand.ilike(term))
         items = db.scalars(stmt).unique().all()
         rows = [(c, sum(m.quantity_change for b in c.batches for m in b.movements), min((b.expiry_date for b in c.batches if b.expiry_date), default=None)) for c in items]
         recs = get_snack_recommendations(db) if category in {"", "Snacks"} else []
-        return page(request, "consumables.html", title=category or "Groceries", items=rows, selected_category=category, q=q, recommendations=recs)
+        stock_catalog = build_stock_catalog(db)
+        g_items = db.scalars(select(GroceryListItem).order_by(GroceryListItem.checked.asc(), GroceryListItem.id.desc())).all()
+        grocery_list = [
+            {
+                "id": g.id,
+                "name": g.name,
+                "quantity": g.quantity,
+                "unit": g.unit,
+                "notes": g.notes or "",
+                "checked": g.checked,
+                "stock_info": match_pantry_stock(g.name, stock_catalog),
+            }
+            for g in g_items
+        ]
+        return page(
+            request,
+            "consumables.html",
+            title=category or "Groceries",
+            items=rows,
+            selected_category=category,
+            q=q,
+            recommendations=recs,
+            grocery_list=grocery_list,
+            stock_catalog=stock_catalog,
+        )
 @app.get("/snacks", response_class=HTMLResponse)
 def snacks(request: Request, q: str = ""):
     return consumables(request, "Snacks", q=q)
@@ -643,6 +777,12 @@ def query_catalog():
             "title": "Database Photo Storage vs QR Fallbacks",
             "purpose": "Inspect assets with uploaded photo paths in MySQL versus algorithmically assigned QR identifiers",
             "sql": "SELECT id, name, status, CASE WHEN photo_path IS NOT NULL THEN 'Uploaded Photo' ELSE 'QR Code' END AS visual_identifier, photo_path, qr_code, updated_at FROM assets ORDER BY photo_path DESC, name ASC"
+        },
+        {
+            "id": "like_search",
+            "title": "Pattern Search by Name or Nickname (LIKE '%...%')",
+            "purpose": "Search items using SQL LIKE '%keyword%' wildcards across item name, nickname, and description",
+            "sql": "SELECT a.id, a.name, a.nickname, c.name AS category, l.name AS location, a.status FROM assets a LEFT JOIN categories c ON c.id=a.category_id LEFT JOIN locations l ON l.id=a.location_id WHERE a.name LIKE '%Laptop%' OR a.nickname LIKE '%Laptop%' OR a.description LIKE '%Laptop%' ORDER BY a.name"
         }
     ]
 @app.get("/api/query-lab")
@@ -708,7 +848,7 @@ async def api_custom_sql(request: Request):
 def new_item_form(category: str):
     if category not in categories:
         raise HTTPException(404, "unknown category")
-    return {"category": category, "fields": [{"name": "name", "type": "text", "required": True}, {"name": "location", "type": "text"}, {"name": "price", "type": "number"}, *[{"name": x, "type": "date" if "date" in x or "expiry" in x or "warranty" in x else "text"} for x in category_fields.get(category, [])]]}
+    return {"category": category, "fields": [{"name": "name", "type": "text", "required": True}, {"name": "nickname", "type": "text"}, {"name": "location", "type": "text"}, {"name": "price", "type": "number"}, *[{"name": x, "type": "date" if "date" in x or "expiry" in x or "warranty" in x else "text"} for x in category_fields.get(category, [])]]}
 @app.get("/api/assets/{asset_id}")
 def api_asset(asset_id: int):
     with Session(engine) as db:
@@ -716,7 +856,7 @@ def api_asset(asset_id: int):
         if not asset:
             raise HTTPException(404, "asset not found")
         purchase = max(asset.purchases, key=lambda x: x.purchase_date, default=None)
-        return {"id": asset.id, "name": asset.name, "category": asset.category.name if asset.category else None, "location": asset.location.name if asset.location else None, "status": asset.status, "condition": asset.condition, "updated_at": asset.updated_at, "purchase": {"date": purchase.purchase_date, "price": purchase.base_price, "seller": purchase.seller} if purchase else None, "warranties": [{"provider": w.provider, "start_date": w.start_date, "end_date": w.end_date, "terms": w.terms} for w in asset.warranties], "qr_code": asset.qr_code or f"ASSET-{asset.id}", "photo_path": asset.photo_path}
+        return {"id": asset.id, "name": asset.name, "nickname": asset.nickname, "category": asset.category.name if asset.category else None, "location": asset.location.name if asset.location else None, "status": asset.status, "condition": asset.condition, "updated_at": asset.updated_at, "purchase": {"date": purchase.purchase_date, "price": purchase.base_price, "seller": purchase.seller} if purchase else None, "warranties": [{"provider": w.provider, "start_date": w.start_date, "end_date": w.end_date, "terms": w.terms} for w in asset.warranties], "qr_code": asset.qr_code or f"ASSET-{asset.id}", "photo_path": asset.photo_path}
 @app.patch("/api/assets/{asset_id}")
 async def update_asset(asset_id: int, request: Request):
     data = await request.json()
@@ -724,9 +864,10 @@ async def update_asset(asset_id: int, request: Request):
         asset = db.get(Asset, asset_id)
         if not asset:
             raise HTTPException(404, "asset not found")
-        for key in ("name", "condition", "description", "photo_path"):
+        for key in ("name", "nickname", "condition", "description", "photo_path"):
             if key in data and data[key] is not None:
-                setattr(asset, key, str(data[key])[:500])
+                val = str(data[key]).strip()[:500]
+                setattr(asset, key, val if val or key != "nickname" else None)
         if "location" in data:
             location = db.scalar(select(Location).where(Location.name == str(data["location"]))) or Location(name=str(data["location"])[:100])
             db.add(location); db.flush(); asset.location = location
@@ -799,6 +940,108 @@ def api_consumables(category: str | None = None):
                 raise HTTPException(400, "category must be Snacks or Kitchen & Grocery")
             stmt = stmt.where(Consumable.category.has(name=category))
         return [{"id": c.id, "name": c.name, "category": c.category.name if c.category else None, "stock": sum(m.quantity_change for b in c.batches for m in b.movements), "unit": c.unit, "reorder_level": c.reorder_level} for c in db.scalars(stmt).unique().all()]
+
+@app.get("/api/grocery-stock-check")
+def api_grocery_stock_check(q: str = ""):
+    with Session(engine) as db:
+        catalog = build_stock_catalog(db)
+        raw_q = (q or "").strip()
+        if not raw_q:
+            return {"query": "", "matches": [], "best_match": {"in_stock": False, "stock": 0, "unit": "", "matched_name": None, "low_stock": False}}
+        term = raw_q if "%" in raw_q else f"%{raw_q}%"
+        matched_cons = db.scalars(
+            select(Consumable)
+            .options(joinedload(Consumable.category), joinedload(Consumable.location), joinedload(Consumable.batches).joinedload(ConsumableBatch.movements))
+            .where(Consumable.name.ilike(term) | Consumable.brand.ilike(term))
+        ).unique().all()
+        matches = []
+        for c in matched_cons:
+            qty = sum(m.quantity_change for b in c.batches for m in b.movements)
+            matches.append({
+                "id": c.id,
+                "name": c.name,
+                "brand": c.brand or "",
+                "location": c.location.name if c.location else "Kitchen",
+                "stock": qty,
+                "unit": c.unit,
+                "reorder_level": c.reorder_level,
+                "in_stock": qty > 0,
+                "low_stock": qty <= c.reorder_level,
+            })
+        best = matches[0] if matches else match_pantry_stock(raw_q, catalog)
+        return {"query": raw_q, "matches": matches, "best_match": best}
+
+@app.get("/api/grocery-list")
+def get_grocery_list():
+    with Session(engine) as db:
+        stock_catalog = build_stock_catalog(db)
+        rows = db.scalars(select(GroceryListItem).order_by(GroceryListItem.checked.asc(), GroceryListItem.id.desc())).all()
+        return [
+            {
+                "id": r.id,
+                "name": r.name,
+                "quantity": r.quantity,
+                "unit": r.unit,
+                "notes": r.notes or "",
+                "checked": r.checked,
+                "stock_info": match_pantry_stock(r.name, stock_catalog),
+            }
+            for r in rows
+        ]
+
+@app.post("/api/grocery-list")
+async def add_grocery_list_item(request: Request):
+    data = await request.json()
+    name = str(data.get("name", "")).strip()[:160]
+    if not name:
+        raise HTTPException(400, "Item name is required")
+    qty = str(data.get("quantity", "1")).strip()[:40] or "1"
+    unit = str(data.get("unit", "pack")).strip()[:30] or "pack"
+    notes = str(data.get("notes", "")).strip()[:255] or None
+    with Session(engine) as db:
+        item = GroceryListItem(name=name, quantity=qty, unit=unit, notes=notes, checked=False)
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        stock_catalog = build_stock_catalog(db)
+        return {
+            "id": item.id,
+            "name": item.name,
+            "quantity": item.quantity,
+            "unit": item.unit,
+            "notes": item.notes or "",
+            "checked": item.checked,
+            "stock_info": match_pantry_stock(item.name, stock_catalog),
+        }
+
+@app.post("/api/grocery-list/{item_id}/toggle")
+def toggle_grocery_list_item(item_id: int):
+    with Session(engine) as db:
+        item = db.get(GroceryListItem, item_id)
+        if not item:
+            raise HTTPException(404, "Grocery list item not found")
+        item.checked = not item.checked
+        db.commit()
+        return {"id": item.id, "checked": item.checked}
+
+@app.delete("/api/grocery-list/{item_id}")
+def delete_grocery_list_item(item_id: int):
+    with Session(engine) as db:
+        item = db.get(GroceryListItem, item_id)
+        if not item:
+            raise HTTPException(404, "Grocery list item not found")
+        db.delete(item)
+        db.commit()
+        return {"deleted": item_id}
+
+@app.post("/api/grocery-list/clear")
+def clear_grocery_list():
+    with Session(engine) as db:
+        for item in db.scalars(select(GroceryListItem)).all():
+            db.delete(item)
+        db.commit()
+        return {"cleared": True}
+
 def generate_qr_svg_bytes(data: str) -> bytes:
     img = qrcode.make(data, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=2)
     stream = io.BytesIO()
@@ -853,7 +1096,8 @@ async def sync(request: Request):
                 loc = db.scalar(select(Location).where(Location.name == str(data.get("location", "Entry shelf")))) or Location(name=str(data.get("location", "Entry shelf"))[:100])
                 db.add_all([cat, loc])
                 db.flush()
-                created = Asset(user=owner, name=str(data["name"])[:160], category=cat, location=loc, condition=str(data.get("condition", "Good"))[:40], description=str(data.get("description", ""))[:2000], qr_code=f"ASSET-{secrets.token_hex(4).upper()}", purchases=[Purchase(purchase_date=date.today(), base_price=data.get("price", 0))])
+                clean_nick = str(data.get("nickname", "")).strip()[:160] or None
+                created = Asset(user=owner, name=str(data["name"])[:160], nickname=clean_nick, category=cat, location=loc, condition=str(data.get("condition", "Good"))[:40], description=str(data.get("description", ""))[:2000], qr_code=f"ASSET-{secrets.token_hex(4).upper()}", purchases=[Purchase(purchase_date=date.today(), base_price=data.get("price", 0))])
                 db.add(created)
             if entity == "asset" and entity_id:
                 asset = db.get(Asset, int(entity_id))
@@ -864,7 +1108,7 @@ async def sync(request: Request):
                         if old != asset.status:
                             asset.history.append(AssetStatusHistory(old_status=old, new_status=asset.status, reason="Offline sync"))
                     elif item.get("operation") in {"UPSERT", "UPDATE"}:
-                        for key in ("name", "condition", "description"):
+                        for key in ("name", "nickname", "condition", "description"):
                             if key in data:
                                 setattr(asset, key, str(data[key])[:500])
                     asset.version_no += 1

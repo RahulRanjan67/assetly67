@@ -3,8 +3,84 @@
 <div class="page-heading">
   <div>
     <h1>{{ "Snacks & Refreshments" if selected_category=="Snacks" else "Kitchen & Grocery Inventory" if selected_category=="Kitchen & Grocery" else "Pantry & Groceries" }} ({{ items|length }})</h1>
+    <p class="lede">Monitor pantry stock levels and plan your market grocery shopping list with live stock checks.</p>
   </div>
 </div>
+
+<!-- Market Grocery Shopping List Planner -->
+<section class="panel grocery-planner-panel" id="grocery-list-panel">
+  <div class="panel-head">
+    <div>
+      <h2><i class="bi bi-cart3"></i> Market Grocery Shopping List</h2>
+      <p class="lede">Plan groceries before going to the market. Live stock status is shown while typing. <strong>Note:</strong> This planning list is separate and does not automatically add or update items in My Things.</p>
+    </div>
+    <div class="planner-head-actions">
+      <button type="button" class="button button-sm button-secondary" id="btn-print-grocery" onclick="window.print()">Print List</button>
+      <button type="button" class="button button-sm button-secondary" id="btn-clear-grocery">Clear List</button>
+    </div>
+  </div>
+
+  <form id="grocery-list-form" class="grocery-form">
+    <div class="grocery-form-grid">
+      <div class="grocery-field-main">
+        <label for="grocery-item-name">Grocery Item to Buy *</label>
+        <input id="grocery-item-name" name="name" list="pantry-stock-suggestions" placeholder="Type item name (e.g. Basmati rice, Green tea, Sunflower oil, Milk)..." autocomplete="off" required>
+        <datalist id="pantry-stock-suggestions">
+          {% for s in stock_catalog %}
+          <option value="{{ s.name }}">{{ s.stock }} {{ s.unit }} in stock ({{ s.brand or s.category }})</option>
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <div>
+        <label for="grocery-item-qty">Qty to Buy</label>
+        <input id="grocery-item-qty" name="quantity" type="text" value="1" placeholder="e.g. 2">
+      </div>
+
+      <div>
+        <label for="grocery-item-unit">Unit</label>
+        <select id="grocery-item-unit" name="unit">
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="pack" selected>pack</option>
+          <option value="litre">litre</option>
+          <option value="bottle">bottle</option>
+          <option value="pcs">pcs</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="grocery-item-notes">Note / Brand</label>
+        <input id="grocery-item-notes" name="notes" type="text" placeholder="Optional note">
+      </div>
+
+      <div class="grocery-submit-col">
+        <button type="submit" class="button"><i class="bi bi-plus-lg"></i> Add to List</button>
+      </div>
+    </div>
+
+    <div id="live-stock-banner" class="live-stock-banner">
+      <i class="bi bi-info-circle"></i>
+      <span id="live-stock-text">Start typing an item above to check if it is already in stock and how much is left at home.</span>
+    </div>
+  </form>
+
+  <div class="table-responsive" style="margin-top: 14px;">
+    <table id="grocery-list-table">
+      <thead>
+        <tr>
+          <th style="width: 60px;">Bought</th>
+          <th>Grocery Item</th>
+          <th>Qty to Buy</th>
+          <th>Current Home Stock</th>
+          <th>Note / Brand</th>
+          <th style="width: 80px;">Action</th>
+        </tr>
+      </thead>
+      <tbody id="grocery-list-tbody"></tbody>
+    </table>
+  </div>
+</section>
 
 {% if recommendations %}
 <div class="panel" style="margin-bottom: 20px;">
@@ -27,8 +103,8 @@
 {% endif %}
 
 <form class="search" method="get">
-  <input name="q" value="{{ q }}" placeholder="Search pantry items or brands...">
-  <button type="submit">Search</button>
+  <input name="q" value="{{ q }}" placeholder="Search pantry &amp; kitchen stock using SQL LIKE '%...%' (name or brand)...">
+  <button type="submit"><i class="bi bi-search"></i> Search Stock</button>
   {% if q %}
   <a href="{{ request.url.path }}" class="clear-filter-btn">Reset</a>
   {% endif %}
@@ -49,7 +125,9 @@
     <p>{{ c.brand or "Generic" }} &middot; {{ c.location.name if c.location else "Kitchen" }}</p>
     <div class="card-bottom">
       <strong>{{ stock }} {{ c.unit }}</strong>
-      <span>{% if expiry %}Exp: {{ expiry.strftime("%d %b %Y") }}{% else %}No expiry{% endif %}</span>
+      <button type="button" class="text-button quick-plan-btn" data-name="{{ c.name }}" data-unit="{{ c.unit }}" data-brand="{{ c.brand or '' }}">
+        + Plan in List
+      </button>
     </div>
   </div>
   {% else %}
@@ -58,4 +136,171 @@
   </div>
   {% endfor %}
 </div>
+
+<script>
+const stockCatalog = {{ stock_catalog | tojson }};
+let groceryItems = {{ grocery_list | tojson }};
+
+const itemInput = document.getElementById("grocery-item-name");
+const qtyInput = document.getElementById("grocery-item-qty");
+const unitSelect = document.getElementById("grocery-item-unit");
+const notesInput = document.getElementById("grocery-item-notes");
+const liveBanner = document.getElementById("live-stock-banner");
+const liveText = document.getElementById("live-stock-text");
+const tbody = document.getElementById("grocery-list-tbody");
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function findStockMatches(query) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return [];
+  return stockCatalog.filter(s => {
+    const n = (s.name || "").toLowerCase();
+    const b = (s.brand || "").toLowerCase();
+    return n.includes(q) || q.includes(n) || (b && b.includes(q));
+  });
+}
+
+function updateLiveStockIndicator() {
+  const q = itemInput.value.trim();
+  if (!q) {
+    liveBanner.className = "live-stock-banner";
+    liveText.textContent = "Start typing an item above to check if it is already in stock and how much is left at home.";
+    return;
+  }
+
+  const matches = findStockMatches(q);
+  if (matches.length > 0) {
+    const m = matches[0];
+    if (m.unit && ["kg", "g", "pack", "litre", "bottle", "pcs"].includes(m.unit)) {
+      unitSelect.value = m.unit;
+    }
+    if (m.stock > 0) {
+      liveBanner.className = m.stock <= m.reorder_level ? "live-stock-banner low" : "live-stock-banner ok";
+      const statusTag = m.stock <= m.reorder_level ? "LOW STOCK" : "ALREADY IN STOCK";
+      liveText.innerHTML = `<strong>${statusTag}:</strong> ${escapeHtml(m.name)}${m.brand ? " (" + escapeHtml(m.brand) + ")" : ""} &mdash; <strong>${m.stock} ${escapeHtml(m.unit)}</strong> currently available in ${escapeHtml(m.location)} (Reorder threshold: ${m.reorder_level} ${escapeHtml(m.unit)}).`;
+    } else {
+      liveBanner.className = "live-stock-banner low";
+      liveText.innerHTML = `<strong>OUT OF STOCK:</strong> ${escapeHtml(m.name)} has <strong>0 ${escapeHtml(m.unit)}</strong> left in ${escapeHtml(m.location)}.`;
+    }
+  } else {
+    liveBanner.className = "live-stock-banner neutral";
+    liveText.innerHTML = `<strong>Not in current home stock (0 found)</strong> for "${escapeHtml(q)}" &mdash; new market item.`;
+  }
+}
+
+itemInput.addEventListener("input", updateLiveStockIndicator);
+
+function renderGroceryTable() {
+  if (!groceryItems.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Your market grocery list is empty. Add items above to plan your trip.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = groceryItems.map(item => {
+    const info = item.stock_info || {};
+    let stockBadge = `<span class="stock-pill none">Not in stock (0)</span>`;
+    if (info.matched_name) {
+      if (info.stock > 0) {
+        const cls = info.low_stock ? "low" : "ok";
+        stockBadge = `<span class="stock-pill ${cls}"><strong>${info.stock} ${escapeHtml(info.unit)}</strong> in stock (${escapeHtml(info.matched_name)})</span>`;
+      } else {
+        stockBadge = `<span class="stock-pill low">0 ${escapeHtml(info.unit)} in stock (${escapeHtml(info.matched_name)})</span>`;
+      }
+    }
+
+    return `
+      <tr class="${item.checked ? 'grocery-row-checked' : ''}">
+        <td>
+          <input type="checkbox" class="grocery-check" data-id="${item.id}" ${item.checked ? "checked" : ""} aria-label="Mark ${escapeHtml(item.name)} as bought">
+        </td>
+        <td><strong>${escapeHtml(item.name)}</strong></td>
+        <td>${escapeHtml(item.quantity)} ${escapeHtml(item.unit)}</td>
+        <td>${stockBadge}</td>
+        <td>${escapeHtml(item.notes || "-")}</td>
+        <td>
+          <button type="button" class="text-button remove-photo-btn grocery-del" data-id="${item.id}">Remove</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  tbody.querySelectorAll(".grocery-check").forEach(cb => {
+    cb.onchange = async () => {
+      const id = cb.dataset.id;
+      const res = await fetch(`/api/grocery-list/${id}/toggle`, { method: "POST" });
+      if (res.ok) {
+        const updated = await res.json();
+        const found = groceryItems.find(x => String(x.id) === String(id));
+        if (found) found.checked = updated.checked;
+        renderGroceryTable();
+      }
+    };
+  });
+
+  tbody.querySelectorAll(".grocery-del").forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      const res = await fetch(`/api/grocery-list/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        groceryItems = groceryItems.filter(x => String(x.id) !== String(id));
+        renderGroceryTable();
+      }
+    };
+  });
+}
+
+document.getElementById("grocery-list-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const payload = {
+    name: itemInput.value.trim(),
+    quantity: qtyInput.value.trim() || "1",
+    unit: unitSelect.value,
+    notes: notesInput.value.trim()
+  };
+  if (!payload.name) return;
+
+  const res = await fetch("/api/grocery-list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) {
+    const created = await res.json();
+    groceryItems.unshift(created);
+    itemInput.value = "";
+    qtyInput.value = "1";
+    notesInput.value = "";
+    updateLiveStockIndicator();
+    renderGroceryTable();
+  }
+});
+
+document.getElementById("btn-clear-grocery").addEventListener("click", async () => {
+  if (!groceryItems.length) return;
+  const res = await fetch("/api/grocery-list/clear", { method: "POST" });
+  if (res.ok) {
+    groceryItems = [];
+    renderGroceryTable();
+  }
+});
+
+document.querySelectorAll(".quick-plan-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    itemInput.value = btn.dataset.name || "";
+    if (btn.dataset.unit) unitSelect.value = btn.dataset.unit;
+    if (btn.dataset.brand) notesInput.value = btn.dataset.brand;
+    updateLiveStockIndicator();
+    itemInput.focus();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+});
+
+renderGroceryTable();
+</script>
 {% endblock %}

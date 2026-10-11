@@ -2,42 +2,57 @@
 {% block content %}
 <div class="page-heading">
   <div>
-    <h1>Inventory Statistics</h1>
+    <h1>Inventory Insights &amp; Valuation</h1>
+    <p class="lede">Monthly acquisition expenditure, category valuation breakdown, and category sensitivity filters.</p>
   </div>
   <div>
-    <span id="summary-asset-count">{{ metrics.asset_count }} items</span>
+    <span class="summary-count-badge" id="summary-asset-count">{{ metrics.asset_count }} items analyzed</span>
   </div>
 </div>
 
-<div class="panel" style="margin-bottom: 20px;">
-  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 14px;">
-    <div class="mode-toggle-group">
-      <button type="button" class="mode-btn active" data-mode="monthwise">Month-wise Statistics</button>
-      <button type="button" class="mode-btn" data-mode="total">Total Statistics</button>
+<div id="panel" class="panel insights-control-panel">
+  <div class="insights-controls-top">
+    <div class="control-block">
+      <span class="control-label">Statistical View Mode</span>
+      <div class="mode-toggle-group">
+        <button type="button" class="mode-btn active" data-mode="monthwise">
+          <i class="bi bi-calendar3"></i> Month-wise Statistics
+        </button>
+        <button type="button" class="mode-btn" data-mode="total">
+          <i class="bi bi-bar-chart-line"></i> Total Portfolio Statistics
+        </button>
+      </div>
     </div>
 
-    <div id="period-wrap">
+    <div class="control-block" id="period-wrap">
+      <span class="control-label">Timeline Horizon</span>
       <div class="period-toggle">
-        <button type="button" class="text-button period active" data-period="all">12 Months</button>
-        <span>|</span>
-        <button type="button" class="text-button period" data-period="month">Last 30 Days</button>
+        <button type="button" class="period-btn period active" data-period="all">12 Months</button>
+        <button type="button" class="period-btn period" data-period="month">Last 30 Days</button>
       </div>
     </div>
   </div>
 
-  <div style="border-top: 1px solid var(--line); padding-top: 12px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
-      <span style="font-size: 13px;">Toggle categories to include or exclude from statistics:</span>
-      <div style="display: flex; gap: 12px;">
-        <button type="button" id="btn-toggle-electronics" class="text-button">Exclude Electronics</button>
-        <button type="button" id="btn-reset-categories" class="text-button">Include All</button>
+  <div class="insights-controls-bottom">
+    <div class="filter-bar-head">
+      <div>
+        <span class="control-label">Category Sensitivity Filter</span>
+        <p class="filter-help">Toggle categories below to include or exclude them from valuation totals (e.g. exclude high-cost Electronics to inspect everyday household spend):</p>
+      </div>
+      <div class="filter-bar-actions">
+        <button type="button" id="btn-toggle-electronics" class="button button-sm button-secondary">
+          <i class="bi bi-sliders"></i> <span id="electronics-btn-label">Exclude Electronics</span>
+        </button>
+        <button type="button" id="btn-reset-categories" class="button button-sm button-secondary">
+          Include All
+        </button>
       </div>
     </div>
 
     <div class="category-chips-wrap" id="category-chips">
       {% for cat in all_categories %}
       <button type="button" class="cat-chip" data-category="{{ cat }}">
-        <span class="chip-indicator">[x]</span>
+        <i class="bi bi-check2 chip-indicator"></i>
         <span class="chip-label">{{ cat }}</span>
       </button>
       {% endfor %}
@@ -45,37 +60,40 @@
   </div>
 </div>
 
-<div class="summary-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+<div id="summary-card-grid" class="summary-cards-grid">
   <div class="stat-box panel">
-    <small>Total Valuation</small>
-    <strong id="stat-total-val">₹{{ "{:,.0f}".format(metrics.total_value) }}</strong>
-    <span id="stat-skew-note" style="font-size: 12px; color: var(--muted);">All categories</span>
+    <small class="stat-label">Analyzed Valuation</small>
+    <strong class="stat-value" id="stat-total-val">₹{{ "{:,.0f}".format(metrics.total_value) }}</strong>
+    <span class="stat-meta" id="stat-skew-note">All categories included</span>
   </div>
 
   <div class="stat-box panel">
-    <small>Items Included</small>
-    <strong id="stat-item-count">{{ metrics.asset_count }}</strong>
+    <small class="stat-label">Items Included</small>
+    <strong class="stat-value" id="stat-item-count">{{ metrics.asset_count }}</strong>
+    <span class="stat-meta">Registered assets in scope</span>
   </div>
 
   <div class="stat-box panel">
-    <small>Categories Included</small>
-    <strong id="stat-cat-count">{{ all_categories|length }} / {{ all_categories|length }}</strong>
-    <span id="stat-cat-status" style="font-size: 12px; color: var(--muted);">None excluded</span>
+    <small class="stat-label">Active Categories</small>
+    <strong class="stat-value" id="stat-cat-count">{{ all_categories|length }} / {{ all_categories|length }}</strong>
+    <span class="stat-meta" id="stat-cat-status">None excluded</span>
   </div>
 
   <div class="stat-box panel">
-    <small>Active Loans</small>
-    <strong>{{ metrics.loans }}</strong>
-    <span style="font-size: 12px; color: var(--muted);">{{ metrics.overdue }} overdue</span>
+    <small class="stat-label">Active Loans</small>
+    <strong class="stat-value">{{ metrics.loans }}</strong>
+    <span class="stat-meta">{{ metrics.overdue }} overdue</span>
   </div>
 </div>
 
 <div class="panel chart-panel" style="margin-bottom: 20px;">
-  <h2 id="view-title-h2">Monthly Expenditure</h2>
-  <div id="chart-container" class="svg-chart-container" style="min-height: 220px;">
+  <div class="panel-head">
+    <h2 id="view-title-h2" style="margin: 0;">Monthly Expenditure</h2>
+    <span id="chart-status" class="chart-status-text"></span>
+  </div>
+  <div id="chart-container" class="svg-chart-container" style="min-height: 230px; margin: 10px 0 16px;">
     <svg id="insight-chart" viewBox="0 0 800 250" role="img" aria-label="Statistics chart"></svg>
   </div>
-  <p id="chart-status" style="font-size: 12.5px; color: var(--muted); margin: 6px 0 14px;"></p>
 
   <div class="table-responsive">
     <table id="analytics-table">
@@ -106,6 +124,21 @@ const tableHead = document.getElementById("table-head");
 const tableBody = document.getElementById("table-body");
 const liveSqlCode = document.getElementById("live-sql-code");
 
+function setChipExcludedState(chip, isExcluded) {
+  const icon = chip.querySelector(".chip-indicator");
+  if (isExcluded) {
+    chip.classList.add("excluded");
+    if (icon) {
+      icon.className = "bi bi-dash chip-indicator";
+    }
+  } else {
+    chip.classList.remove("excluded");
+    if (icon) {
+      icon.className = "bi bi-check2 chip-indicator";
+    }
+  }
+}
+
 async function refreshData() {
   const excludeParam = Array.from(excludedCategories).map(c => encodeURIComponent(c)).join(",");
   const url = `/api/insights?mode=${currentMode}&period=${currentPeriod}&exclude=${excludeParam}`;
@@ -119,7 +152,7 @@ async function refreshData() {
     const summary = data.summary || {};
     document.getElementById("stat-total-val").textContent = "₹" + Number(summary.total_valuation || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
     document.getElementById("stat-item-count").textContent = summary.asset_count || 0;
-    document.getElementById("summary-asset-count").textContent = `${summary.asset_count || 0} items`;
+    document.getElementById("summary-asset-count").textContent = `${summary.asset_count || 0} items analyzed`;
 
     const allCount = {{ all_categories|length }};
     const incCount = summary.categories_included !== undefined ? summary.categories_included : (allCount - excludedCategories.size);
@@ -129,10 +162,10 @@ async function refreshData() {
     const skewNote = document.getElementById("stat-skew-note");
     if (excludedCategories.size === 0) {
       catStatus.textContent = "None excluded";
-      skewNote.textContent = "All categories";
+      skewNote.textContent = "All categories included";
     } else {
       catStatus.textContent = "Excluded: " + Array.from(excludedCategories).join(", ");
-      skewNote.textContent = "Filtered view";
+      skewNote.textContent = "Filtered portfolio view";
     }
 
     if (currentMode === "monthwise") {
@@ -170,7 +203,7 @@ function renderMonthwise(data) {
   const totalSpent = points.reduce((acc, p) => acc + p.total_spent, 0) || 1;
   tableBody.innerHTML = points.map(p => `
     <tr>
-      <td>${p.label || p.month}</td>
+      <td><b>${p.label || p.month}</b></td>
       <td>${p.item_count}</td>
       <td>₹${p.total_spent.toLocaleString("en-IN", {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
       <td>${((p.total_spent / totalSpent) * 100).toFixed(1)}%</td>
@@ -184,14 +217,14 @@ function renderMonthwise(data) {
 
   chart.setAttribute("viewBox", "0 0 800 250");
   chart.innerHTML = `
-    <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="#ccc" stroke-width="1"/>
+    <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="#d4dbd6" stroke-width="1.5"/>
     <polyline points="${pts}" fill="none" stroke="#2e7a4d" stroke-width="2.5"/>
     ${points.map((x, i) => {
       const cx = pad + i * step;
       const cy = h - pad - (x.total_spent / max) * (h - pad * 2);
       return `
-        <circle cx="${cx}" cy="${cy}" r="4" fill="#1e2c26"/>
-        <text x="${cx}" y="${h - 16}" text-anchor="middle" font-size="11" fill="#555">${x.label.split(" ")[0]}</text>
+        <circle cx="${cx}" cy="${cy}" r="4.5" fill="#1e2c26" stroke="#ffffff" stroke-width="1.5"/>
+        <text x="${cx}" y="${h - 16}" text-anchor="middle" font-size="11" fill="#5c6b63">${x.label.split(" ")[0]}</text>
       `;
     }).join("")}
   `;
@@ -220,7 +253,7 @@ function renderTotal(data) {
   const totalVal = categories.reduce((acc, c) => acc + c.total_value, 0) || 1;
   tableBody.innerHTML = categories.map(c => `
     <tr>
-      <td>${c.category}</td>
+      <td><b>${c.category}</b></td>
       <td>${c.count}</td>
       <td>₹${c.total_value.toLocaleString("en-IN", {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
       <td>${c.pct}%</td>
@@ -238,10 +271,10 @@ function renderTotal(data) {
     const y = startY + i * (barH + gap);
     const barW = Math.max(3, (c.total_value / maxVal) * 460);
     return `
-      <text x="140" y="${y + 13}" text-anchor="end" font-size="12" fill="#222">${c.category}</text>
-      <rect x="150" y="${y}" width="460" height="${barH}" fill="#eee"/>
+      <text x="140" y="${y + 13}" text-anchor="end" font-size="12" fill="#1e2c26">${c.category}</text>
+      <rect x="150" y="${y}" width="460" height="${barH}" fill="#eef2ed"/>
       <rect x="150" y="${y}" width="${barW}" height="${barH}" fill="#2e7a4d"/>
-      <text x="${158 + barW}" y="${y + 13}" font-size="11.5" fill="#222">₹${c.total_value.toLocaleString("en-IN")} (${c.pct}%)</text>
+      <text x="${158 + barW}" y="${y + 13}" font-size="11.5" fill="#1e2c26">₹${c.total_value.toLocaleString("en-IN")} (${c.pct}%)</text>
     `;
   }).join("");
 
@@ -271,12 +304,10 @@ document.querySelectorAll(".cat-chip").forEach(chip => {
     const cat = chip.dataset.category;
     if (excludedCategories.has(cat)) {
       excludedCategories.delete(cat);
-      chip.classList.remove("excluded");
-      chip.querySelector(".chip-indicator").textContent = "[x]";
+      setChipExcludedState(chip, false);
     } else {
       excludedCategories.add(cat);
-      chip.classList.add("excluded");
-      chip.querySelector(".chip-indicator").textContent = "[ ]";
+      setChipExcludedState(chip, true);
     }
     updateElectronicsBtnText();
     refreshData();
@@ -284,24 +315,19 @@ document.querySelectorAll(".cat-chip").forEach(chip => {
 });
 
 const btnElectronics = document.getElementById("btn-toggle-electronics");
+const lblElectronics = document.getElementById("electronics-btn-label");
 function updateElectronicsBtnText() {
-  btnElectronics.textContent = excludedCategories.has("Electronics") ? "Include Electronics" : "Exclude Electronics";
+  lblElectronics.textContent = excludedCategories.has("Electronics") ? "Include Electronics" : "Exclude Electronics";
 }
 
 btnElectronics.onclick = () => {
   const chip = document.querySelector(`.cat-chip[data-category="Electronics"]`);
   if (excludedCategories.has("Electronics")) {
     excludedCategories.delete("Electronics");
-    if (chip) {
-      chip.classList.remove("excluded");
-      chip.querySelector(".chip-indicator").textContent = "[x]";
-    }
+    if (chip) setChipExcludedState(chip, false);
   } else {
     excludedCategories.add("Electronics");
-    if (chip) {
-      chip.classList.add("excluded");
-      chip.querySelector(".chip-indicator").textContent = "[ ]";
-    }
+    if (chip) setChipExcludedState(chip, true);
   }
   updateElectronicsBtnText();
   refreshData();
@@ -309,10 +335,7 @@ btnElectronics.onclick = () => {
 
 document.getElementById("btn-reset-categories").onclick = () => {
   excludedCategories.clear();
-  document.querySelectorAll(".cat-chip").forEach(chip => {
-    chip.classList.remove("excluded");
-    chip.querySelector(".chip-indicator").textContent = "[x]";
-  });
+  document.querySelectorAll(".cat-chip").forEach(chip => setChipExcludedState(chip, false));
   updateElectronicsBtnText();
   refreshData();
 };

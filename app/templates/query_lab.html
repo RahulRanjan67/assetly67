@@ -1,46 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-heading">
-  <div>
-    <h1>MySQL Query Lab</h1>
-    <p class="lede">Execute read-only SQL queries directly against the inventory database.</p>
+<div class="query-lab-page">
+  <div class="page-heading">
+    <div>
+      <h1>MySQL Query Lab</h1>
+      <p class="lede">Execute read-only SQL queries and pattern searches directly against the inventory database.</p>
+    </div>
   </div>
-</div>
 
-<section class="mysql-terminal-box">
-  <div class="mysql-terminal-bar">mysql&gt; interactive client (read-only mode: SELECT, SHOW, DESCRIBE, EXPLAIN)</div>
-  <form id="custom-sql-form" class="mysql-prompt-form">
-    <div class="mysql-prompt-row">
-      <span class="mysql-prompt-label">mysql&gt;</span>
-      <textarea id="custom-sql-input" rows="3" spellcheck="false" required>SELECT id, name, condition, status, qr_code, updated_at FROM assets ORDER BY id ASC LIMIT 8;</textarea>
+  <section class="mysql-terminal-box">
+    <div class="mysql-terminal-bar">
+      <span><i class="bi bi-terminal"></i> mysql&gt; interactive client (SELECT, SHOW, DESCRIBE, EXPLAIN)</span>
     </div>
-    <div class="mysql-prompt-actions">
-      <button type="submit" class="button" id="custom-run-btn">Execute SQL</button>
-      <button type="button" class="button button-secondary preset-pill" data-sql="SHOW TABLES;">SHOW TABLES;</button>
-      <button type="button" class="button button-secondary preset-pill" data-sql="DESCRIBE assets;">DESCRIBE assets;</button>
-      <button type="button" class="button button-secondary preset-pill" data-sql="SELECT * FROM vw_asset_overview LIMIT 10;">SELECT * FROM vw_asset_overview;</button>
-      <button type="button" class="button button-secondary preset-pill" data-sql="SELECT * FROM vw_asset_tco ORDER BY total_cost DESC;">SELECT * FROM vw_asset_tco;</button>
-    </div>
-  </form>
-  <div id="custom-sql-result" class="query-result-container" style="display:none;"></div>
-</section>
+    <form id="custom-sql-form" class="mysql-prompt-form">
+      <div class="mysql-prompt-row">
+        <span class="mysql-prompt-label">mysql&gt;</span>
+        <textarea id="custom-sql-input" rows="3" spellcheck="false" required>SELECT id, name, nickname, condition, status, qr_code FROM assets ORDER BY id ASC LIMIT 8;</textarea>
+      </div>
+      <div class="mysql-prompt-actions">
+        <button type="submit" class="button" id="custom-run-btn"><i class="bi bi-play-fill"></i> Execute SQL</button>
+        <button type="button" class="button button-secondary preset-pill" data-sql="SHOW TABLES;">SHOW TABLES;</button>
+        <button type="button" class="button button-secondary preset-pill" data-sql="DESCRIBE assets;">DESCRIBE assets;</button>
+        <button type="button" class="button button-secondary preset-pill" data-sql="SELECT * FROM vw_asset_overview LIMIT 10;">SELECT * FROM vw_asset_overview;</button>
+        <button type="button" class="button button-secondary preset-pill" data-sql="SELECT * FROM vw_asset_tco ORDER BY total_cost DESC;">SELECT * FROM vw_asset_tco;</button>
+      </div>
 
-<div class="section-title-wrap">
-  <h2>Saved Queries &amp; Views</h2>
-</div>
+      <div class="mysql-like-bar">
+        <label for="like-keyword-input">SQL <code>LIKE '%...%'</code> Search:</label>
+        <input type="text" id="like-keyword-input" placeholder="Enter keyword or nickname (e.g. Laptop, Chair, Mixer)...">
+        <button type="button" class="button button-sm" id="run-like-btn"><i class="bi bi-search"></i> Run LIKE Query</button>
+      </div>
+    </form>
+    <div id="custom-sql-result" class="query-result-container" style="display:none;"></div>
+  </section>
 
-<div class="query-lab">
-  {% for query in queries %}
-  <article class="query-card" id="card-{{ query.id }}">
-    <div class="query-card-header">
-      <b>{{ query.title or query.id }}</b>
-      <button type="button" class="button button-sm run-query" data-query="{{ query.id }}">Run Query</button>
-    </div>
-    <p class="query-purpose">{{ query.purpose }}</p>
-    <pre class="sql-code">mysql&gt; {{ query.sql }};</pre>
-    <div class="query-result-container" id="result-{{ query.id }}" style="display:none;"></div>
-  </article>
-  {% endfor %}
+  <div class="section-title-wrap">
+    <h2>Saved Queries &amp; Views</h2>
+  </div>
+
+  <div class="query-lab">
+    {% for query in queries %}
+    <article class="query-card" id="card-{{ query.id }}">
+      <div class="query-card-header">
+        <b>{{ query.title or query.id }}</b>
+        <button type="button" class="button button-sm run-query" data-query="{{ query.id }}"><i class="bi bi-play-fill"></i> Run Query</button>
+      </div>
+      <p class="query-purpose">{{ query.purpose }}</p>
+      <pre class="sql-code">mysql&gt; {{ query.sql }};</pre>
+      <div class="query-result-container" id="result-{{ query.id }}" style="display:none;"></div>
+    </article>
+    {% endfor %}
+  </div>
 </div>
 
 <script>
@@ -60,10 +70,11 @@ function renderMysqlOutput(container, data) {
   const rows = data.rows;
   const sec = ((data.elapsed_ms || 0) / 1000).toFixed(2);
   const sqlText = (data.sql || "").trim();
-  const cmdLine = sqlText ? `mysql> ${sqlText.endsWith(";") ? sqlText : sqlText + ";"}\n` : "";
+  const cmdLine = sqlText ? `mysql> ${sqlText.endsWith(";") ? sqlText : sqlText + ";"}` : "";
+  const cmdBlock = cmdLine ? `<div class="mysql-cmd-echo">${escapeHtml(cmdLine)}</div>` : "";
 
   if (rows.length === 0) {
-    container.innerHTML = `<pre class="mysql-out">${escapeHtml(cmdLine)}Empty set (${sec} sec)</pre>`;
+    container.innerHTML = `${cmdBlock}<pre class="mysql-out">Empty set (${sec} sec)</pre>`;
     return;
   }
 
@@ -89,8 +100,8 @@ function renderMysqlOutput(container, data) {
   }).join("\n");
 
   const footer = `${rows.length} ${rows.length === 1 ? "row" : "rows"} in set (${sec} sec)`;
-  const output = `${cmdLine}${border}\n${header}\n${border}\n${body}\n${border}\n${footer}`;
-  container.innerHTML = `<pre class="mysql-out">${escapeHtml(output)}</pre>`;
+  const output = `${border}\n${header}\n${border}\n${body}\n${border}\n${footer}`;
+  container.innerHTML = `${cmdBlock}<pre class="mysql-out">${escapeHtml(output)}</pre>`;
 }
 
 document.querySelectorAll(".preset-pill").forEach(btn => {
@@ -104,6 +115,25 @@ document.querySelectorAll(".preset-pill").forEach(btn => {
 const customForm = document.getElementById("custom-sql-form");
 const customResult = document.getElementById("custom-sql-result");
 const customBtn = document.getElementById("custom-run-btn");
+
+const likeInput = document.getElementById("like-keyword-input");
+const runLikeBtn = document.getElementById("run-like-btn");
+
+function buildAndRunLikeQuery() {
+  const kw = (likeInput.value || "Laptop").trim().replace(/'/g, "''");
+  const pattern = kw.includes("%") ? kw : `%${kw}%`;
+  const sql = `SELECT a.id, a.name, a.nickname, c.name AS category, l.name AS location, a.status FROM assets a LEFT JOIN categories c ON c.id=a.category_id LEFT JOIN locations l ON l.id=a.location_id WHERE a.name LIKE '${pattern}' OR a.nickname LIKE '${pattern}' OR a.description LIKE '${pattern}' ORDER BY a.name;`;
+  document.getElementById("custom-sql-input").value = sql;
+  customForm.requestSubmit();
+}
+
+runLikeBtn.addEventListener("click", buildAndRunLikeQuery);
+likeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buildAndRunLikeQuery();
+  }
+});
 
 customForm.addEventListener("submit", async (e) => {
   e.preventDefault();

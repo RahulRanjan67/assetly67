@@ -3,14 +3,15 @@
 <div class="page-heading">
   <div>
     <h1>Inventory Items ({{ assets|length }})</h1>
+    <p class="lede">Manage household belongings with serial numbers, rooms, and nicknames.</p>
   </div>
   <div class="heading-actions">
-    <a class="button" href="/assets/new">+ Add Item</a>
+    <a class="button" href="/assets/new"><i class="bi bi-plus-lg"></i> Add Item</a>
   </div>
 </div>
 
 <form class="search" method="get">
-  <input name="q" value="{{ q }}" placeholder="Search by name, room, description, or QR tag...">
+  <input name="q" value="{{ q }}" placeholder="Search by name, nickname, room, description, or QR tag (supports %wildcard%)...">
 
   <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
@@ -33,11 +34,18 @@
     {% endfor %}
   </select>
 
-  <button type="submit">Filter</button>
+  <button type="submit"><i class="bi bi-search"></i> Filter</button>
   {% if q or category or status or selected_location %}
   <a href="/assets" class="clear-filter-btn">Reset</a>
   {% endif %}
 </form>
+
+{% if like_sql %}
+<div class="active-sql-banner">
+  <span><i class="bi bi-database"></i> Executed SQL Query:</span>
+  <code>{{ like_sql }}</code>
+</div>
+{% endif %}
 
 <div class="card-grid">
   {% for a in assets %}
@@ -59,6 +67,9 @@
     </div>
 
     <h2>{{ a.name }}</h2>
+    {% if a.nickname %}
+    <div class="nickname-tag"><i class="bi bi-tag"></i> <span>{{ a.nickname }}</span></div>
+    {% endif %}
     <p>{{ a.location.name if a.location else "Unassigned" }} &middot; {{ a.updated_at.strftime("%d %b %Y") if a.updated_at else "-" }}</p>
 
     <div class="card-bottom">
@@ -68,8 +79,8 @@
   </a>
   {% else %}
   <div class="empty panel">
-    <p>No items found.</p>
-    <a href="/assets" class="button">Reset</a>
+    <p>No items found matching the search criteria.</p>
+    <a href="/assets" class="button">Reset Search</a>
   </div>
   {% endfor %}
 </div>

@@ -35,6 +35,7 @@ class Asset(Base):
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"))
     name: Mapped[str] = mapped_column(String(160), index=True)
+    nickname: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
     condition: Mapped[str] = mapped_column(String(40), default="Good")
     status: Mapped[str] = mapped_column(String(30), default="AVAILABLE", index=True)
     description: Mapped[str | None] = mapped_column(Text)
@@ -194,4 +195,13 @@ class SyncLog(Base):
     entity_id: Mapped[int | None] = mapped_column(Integer)
     client_id: Mapped[str | None] = mapped_column(String(120), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(30), default="COMMITTED")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+class GroceryListItem(Base):
+    __tablename__ = "grocery_list_items"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), index=True)
+    quantity: Mapped[str] = mapped_column(String(40), default="1")
+    unit: Mapped[str] = mapped_column(String(30), default="pack")
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    checked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
