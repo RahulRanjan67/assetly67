@@ -63,55 +63,89 @@ def prepare_db_url_and_args(raw_url: str):
     return normalized_url, connect_args
 
 
-raw_url = os.environ.get("DATABASE_URL", "")
+raw_url = (
+    os.environ.get("DATABASE_URL")
+    or os.environ.get("MYSQL_URL")
+    or os.environ.get("MYSQL_URI")
+    or os.environ.get("AIVEN_SERVICE_URI")
+    or os.environ.get("DB_URL")
+    or ""
+).strip()
 testing = os.environ.get("ASSETLY_TESTING") == "1"
+is_vercel = bool(os.environ.get("VERCEL"))
+
+if is_vercel and (not raw_url or "127.0.0.1" in raw_url or "localhost" in raw_url or "YOUR_PASSWORD" in raw_url):
+    raw_url = "sqlite:////tmp/assetly.db"
+
 if not raw_url:
     raise RuntimeError("DATABASE_URL is required; use a MySQL 8.0 SQLAlchemy URL")
+
 url, connect_args = prepare_db_url_and_args(raw_url)
-if not url.startswith("mysql+pymysql://") and not testing:
+if not url.startswith("mysql+pymysql://") and not testing and not is_vercel:
     raise RuntimeError("Assetly runtime requires MySQL 8.0 through DATABASE_URL")
+
 engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True, pool_recycle=280)
-Base.metadata.create_all(engine)
+try:
+    Base.metadata.create_all(engine)
+except Exception:
+    if is_vercel:
+        url, connect_args = prepare_db_url_and_args("sqlite:////tmp/assetly.db")
+        engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+        Base.metadata.create_all(engine)
+    else:
+        raise
 
 
 def ensure_mysql_views(force: bool = False):
-    if engine.dialect.name != "mysql":
-        return
     schema_path = base.parent / "sql" / "mysql_schema.sql"
     if not schema_path.exists():
         return
+    dialect = engine.dialect.name
     try:
         with engine.connect() as conn:
-            if not force:
-                existing = {
-                    row[0]
-                    for row in conn.exec_driver_sql("SHOW FULL TABLES WHERE Table_type = 'VIEW'").fetchall()
-                }
-                required = {
-                    "vw_asset_overview",
-                    "vw_asset_tco",
-                    "vw_active_loans",
-                    "vw_overdue_loans",
-                    "vw_consumable_stock",
-                }
-                if required.issubset(existing):
-                    return
             content = schema_path.read_text()
             parts = re.split(r"DELIMITER\s+//", content, flags=re.IGNORECASE)
             regular_part = parts[0]
             procedure_part = parts[1] if len(parts) > 1 else ""
-            for stmt in regular_part.split(";"):
-                clean_lines = [l for l in stmt.splitlines() if not l.strip().startswith("--")]
-                clean_stmt = "\n".join(clean_lines).strip()
-                if clean_stmt:
-                    conn.exec_driver_sql(clean_stmt)
-            if procedure_part:
-                proc_body = re.split(r"//\s*DELIMITER\s*;?", procedure_part, flags=re.IGNORECASE)[0].strip()
-                if proc_body:
-                    try:
-                        conn.exec_driver_sql(proc_body)
-                    except Exception:
-                        pass
+            if dialect == "mysql":
+                if not force:
+                    existing = {
+                        row[0]
+                        for row in conn.exec_driver_sql("SHOW FULL TABLES WHERE Table_type = 'VIEW'").fetchall()
+                    }
+                    required = {
+                        "vw_asset_overview",
+                        "vw_asset_tco",
+                        "vw_active_loans",
+                        "vw_overdue_loans",
+                        "vw_consumable_stock",
+                    }
+                    if required.issubset(existing):
+                        return
+                for stmt in regular_part.split(";"):
+                    clean_lines = [l for l in stmt.splitlines() if not l.strip().startswith("--")]
+                    clean_stmt = "\n".join(clean_lines).strip()
+                    if clean_stmt:
+                        conn.exec_driver_sql(clean_stmt)
+                if procedure_part:
+                    proc_body = re.split(r"//\s*DELIMITER\s*;?", procedure_part, flags=re.IGNORECASE)[0].strip()
+                    if proc_body:
+                        try:
+                            conn.exec_driver_sql(proc_body)
+                        except Exception:
+                            pass
+            elif dialect == "sqlite":
+                for stmt in regular_part.split(";"):
+                    clean_lines = [l for l in stmt.splitlines() if not l.strip().startswith("--")]
+                    clean_stmt = "\n".join(clean_lines).strip()
+                    if clean_stmt.upper().startswith("CREATE OR REPLACE VIEW"):
+                        sqlite_stmt = re.sub(
+                            r"^CREATE\s+OR\s+REPLACE\s+VIEW",
+                            "CREATE VIEW IF NOT EXISTS",
+                            clean_stmt,
+                            flags=re.IGNORECASE,
+                        )
+                        conn.exec_driver_sql(sqlite_stmt)
             conn.commit()
     except Exception:
         pass
@@ -587,7 +621,11 @@ def query_catalog():
             "id": "warranty_tracker",
             "title": "Equipment Warranties & Expiry",
             "purpose": "Find equipment warranties and calculate remaining active coverage days",
-            "sql": "SELECT a.id AS asset_id, a.name AS asset_name, w.provider, w.end_date, DATEDIFF(w.end_date, CURRENT_DATE) AS days_remaining FROM warranties w JOIN assets a ON a.id = w.asset_id WHERE w.end_date >= CURRENT_DATE ORDER BY w.end_date ASC"
+            "sql": (
+                "SELECT a.id AS asset_id, a.name AS asset_name, w.provider, w.end_date, "
+                + ("CAST(julianday(w.end_date) - julianday(CURRENT_DATE) AS INTEGER)" if engine.dialect.name == "sqlite" else "DATEDIFF(w.end_date, CURRENT_DATE)")
+                + " AS days_remaining FROM warranties w JOIN assets a ON a.id = w.asset_id WHERE w.end_date >= CURRENT_DATE ORDER BY w.end_date ASC"
+            )
         },
         {
             "id": "repairs_log",
